@@ -1,0 +1,1 @@
+The canonical binary signet is stored as `125A_Signet_Master.png`. The `.base64` helper file is not a source asset and may be removed after binary import.
