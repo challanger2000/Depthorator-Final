@@ -1,0 +1,13 @@
+Depthorator Freeware License
+Copyright (c) 2026 125A SYSTEMS / challanger2000
+All rights reserved.
+
+Depthorator is provided free of charge for personal and commercial music/audio production.
+
+Permission is granted to use the compiled Depthorator plug-in without fee.
+
+The source code published in this repository is made available for transparency, review and educational reference. Unless separate written permission is granted by the copyright holder, you may not copy, modify, relicense, sell, redistribute, or incorporate substantial portions of the source code into another software product.
+
+You may redistribute the original, unmodified freeware release package only if it remains complete, free of charge, and clearly credited to 125A SYSTEMS / challanger2000. You may not sell the plug-in, bundle it as a paid product, or represent it as your own work.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
