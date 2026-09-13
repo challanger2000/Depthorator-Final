@@ -30,7 +30,6 @@ endif()
 smtg_target_add_plugin_resources(Depthorator
     RESOURCES
     ../resource/Depthorator.uidesc
-    ../resource/125A_Signet.png
 )
 
 smtg_target_configure_version_file(Depthorator)
