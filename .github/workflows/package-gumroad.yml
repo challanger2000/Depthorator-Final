@@ -1,0 +1,46 @@
+name: Package Gumroad Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/package-gumroad.yml'
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout Gold Master
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Build plugin
+        run: cmake --build build --config Release --target Depthorator --parallel
+
+      - name: Assemble release package
+        shell: pwsh
+        run: |
+          $plugin = Get-ChildItem -Path build -Recurse -Directory -Filter Depthorator.vst3 | Select-Object -First 1
+          if (-not $plugin) { throw "Depthorator.vst3 bundle not found" }
+          $root = "release/125A_Depthorator_v1.0.0_Windows_x64"
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          Copy-Item -Path $plugin.FullName -Destination $root -Recurse -Force
+          Copy-Item README.md, LICENSE.txt, INSTALL_DE.txt, INSTALL_EN.txt -Destination $root
+          Copy-Item docs/Depthorator_Handbuch_DE.pdf, docs/Depthorator_Manual_EN.pdf -Destination $root
+          Get-ChildItem $root -Recurse -File | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            $rel = $_.FullName.Substring((Resolve-Path $root).Path.Length + 1).Replace('\','/')
+            "$hash  $rel"
+          } | Set-Content -Encoding ascii "$root/SHA256SUMS.txt"
+          Compress-Archive -Path $root -DestinationPath release/125A_Depthorator_v1.0.0_Windows_x64_Gumroad.zip -CompressionLevel Optimal
+
+      - name: Upload Gumroad package
+        uses: actions/upload-artifact@v4
+        with:
+          name: 125A_Depthorator_v1.0.0_Windows_x64_Gumroad
+          path: release/125A_Depthorator_v1.0.0_Windows_x64_Gumroad.zip
+          if-no-files-found: error
