@@ -1,0 +1,15 @@
+INSTALLATION - Depthorator 1.0.0 - Windows x64 VST3
+
+1. ZIP-Datei vollständig entpacken.
+2. Den kompletten Ordner "Depthorator.vst3" nach
+   C:\Program Files\Common Files\VST3\
+   kopieren.
+3. Eine eventuell vorhandene ältere Version vorher ersetzen.
+4. DAW neu starten.
+5. Falls Depthorator nicht erscheint, den VST3-Plugin-Scan der DAW erneut ausführen.
+
+Wichtig:
+- Immer den kompletten .vst3-Bundle-Ordner kopieren.
+- Vor dem Ersetzen einer älteren Version die DAW schließen.
+- Diese Ausgabe ist die Windows-x64-Version 1.0.0.
+- macOS-Versionen sind nicht Bestandteil dieses Pakets.
