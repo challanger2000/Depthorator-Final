@@ -1,13 +1,17 @@
-Depthorator Freeware License
+Depthorator Commercial Software License
 Copyright (c) 2026 125A
 All rights reserved.
 
-Depthorator is provided free of charge for personal and commercial music/audio production.
+This license applies to the compiled Depthorator plug-in distributed by 125A.
 
-Permission is granted to use the compiled Depthorator plug-in without fee.
+A lawful purchase grants the purchaser a non-exclusive, non-transferable license to install and use Depthorator for personal and commercial music and audio production.
 
-The source code published in this repository is made available for transparency, review and educational reference. Unless separate written permission is granted by the copyright holder, you may not copy, modify, relicense, sell, redistribute, or incorporate substantial portions of the source code into another software product.
+Audio created with Depthorator may be released, performed, broadcast, streamed, sold, licensed, or otherwise used commercially without additional royalties owed to 125A.
 
-You may redistribute the original, unmodified freeware release package only if it remains complete, free of charge, and clearly credited to 125A. You may not sell the plug-in, bundle it as a paid product, or represent it as your own work.
+The Depthorator plug-in itself may not be resold, sublicensed, shared, uploaded, distributed, rented, transferred, repackaged, or included in another software or sample product without prior written permission from 125A.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+The source code published separately by 125A, if any, is not included in this end-user license. Publication or visibility of source code does not grant permission to copy, modify, relicense, sell, redistribute, or incorporate substantial portions of it into another software product unless 125A grants separate written permission.
+
+Reverse engineering or modification of the compiled plug-in is prohibited except where such restriction is not permitted by applicable law.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW. IN NO EVENT SHALL 125A BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL OR CONSEQUENTIAL DAMAGES ARISING FROM THE USE OF THE SOFTWARE.
