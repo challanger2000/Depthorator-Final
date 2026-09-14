@@ -2,7 +2,7 @@
 
 **Each repeat goes deeper.**
 
-Depthorator is a free 125A VST3 spatial delay/reverb effect for Windows. Instead of keeping every delay repeat at the same perceived distance, Depthorator progressively moves the repeating signal deeper into a darker, softer and more diffuse room field.
+Depthorator is a 125A VST3 spatial delay/reverb effect for Windows. Instead of keeping every delay repeat at the same perceived distance, Depthorator progressively moves the repeating signal deeper into a darker, softer and more diffuse room field.
 
 The interface is intentionally compact: delay, depth progression, internal algorithmic reverb, stereo behaviour and ducking are coupled into one focused workflow.
 
@@ -78,6 +78,10 @@ Then rescan VST3 plug-ins in your DAW if necessary.
 ## Documentation
 
 The release package includes German and English PDF manuals.
+
+## License
+
+Depthorator is commercial software. Use is subject to the license included with the purchased release package. Redistribution or resale of the plug-in is not permitted.
 
 ## Project
 
