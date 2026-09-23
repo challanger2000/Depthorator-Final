@@ -1,0 +1,96 @@
+name: Build macOS Universal VST3
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - macos/universal-vst3
+    paths:
+      - MACOS_BUILD_TRIGGER.txt
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show build environment
+        run: |
+          sw_vers
+          uname -m
+          cmake --version
+          xcodebuild -version
+
+      - name: Configure Universal Binary
+        run: |
+          cmake -S . -B build -G Xcode \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+            -DSMTG_CREATE_PLUGIN_LINK=OFF \
+            -DSMTG_RUN_VST_VALIDATOR=ON
+
+      - name: Build Depthorator and validator
+        run: |
+          cmake --build build --config Release \
+            --target Depthorator validator \
+            --parallel
+
+      - name: Run Steinberg Validator
+        run: |
+          set -euo pipefail
+          plugin="$(find build -type d -name 'Depthorator.vst3' -print -quit)"
+          validator="$(find build -type f -name 'validator' -perm +111 -print -quit)"
+          test -n "$plugin"
+          test -n "$validator"
+          "$validator" "$plugin" 2>&1 | tee validator.log
+          grep -Eq 'Result:[[:space:]]+47 tests passed,[[:space:]]+0 tests failed' validator.log
+
+      - name: Verify metadata, resource and Universal binary
+        run: |
+          set -euo pipefail
+          plugin="$(find build -type d -name 'Depthorator.vst3' -print -quit)"
+          test -n "$plugin"
+
+          resources="$plugin/Contents/Resources"
+          test -f "$resources/Depthorator.uidesc"
+          test -f "$resources/moduleinfo.json"
+          grep -Eq '"Version"[[:space:]]*:[[:space:]]*"1\.0\.0"' "$resources/moduleinfo.json"
+
+          binary="$plugin/Contents/MacOS/Depthorator"
+          test -f "$binary"
+          file "$binary"
+          lipo -info "$binary"
+          lipo -archs "$binary" | grep -qw arm64
+          lipo -archs "$binary" | grep -qw x86_64
+
+          mkdir -p artifact
+          cp -R "$plugin" artifact/
+
+      - name: Ad-hoc sign staged bundle
+        run: |
+          set -euo pipefail
+          plugin="artifact/Depthorator.vst3"
+          codesign --force --deep --sign - "$plugin"
+          codesign --verify --deep --strict --verbose=2 "$plugin"
+
+      - name: Verify staged architectures
+        run: |
+          set -euo pipefail
+          binary="artifact/Depthorator.vst3/Contents/MacOS/Depthorator"
+          archs="$(lipo -archs "$binary")"
+          echo "Staged architectures: $archs"
+          echo "$archs" | grep -qw arm64
+          echo "$archs" | grep -qw x86_64
+
+      - name: Upload Universal VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: 125A-Depthorator-v1.0.0-macOS-Universal-VST3
+          path: artifact
+          if-no-files-found: error
