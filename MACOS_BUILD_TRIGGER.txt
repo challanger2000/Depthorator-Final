@@ -1,0 +1,6 @@
+125A Depthorator v1.0.0 macOS Universal VST3 build trigger
+
+Gold-master reference: 125A_Depthorator_v1.0.0_Windows_x64_Gumroad.zip
+Confirmed source baseline: main @ 797b3e845f5dd2700d30634a3945c97f191c92c3
+Target branch: macos/universal-vst3
+Purpose: first arm64 + x86_64 validation build
