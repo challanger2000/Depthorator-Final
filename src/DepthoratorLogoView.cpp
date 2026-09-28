@@ -1,4 +1,5 @@
 #include "DepthoratorLogoView.h"
+#include "LicenseStatus.h"
 #include "vstgui/lib/cdrawcontext.h"
 
 #include <array>
@@ -70,6 +71,13 @@ void DepthoratorLogoView::draw(VSTGUI::CDrawContext* context) {
                          r.left + (run.x + run.w) * sx,
                          r.top + (run.y + 1) * sy);
         context->drawRect(rr, VSTGUI::kDrawFilled);
+    }
+    static const bool demo = !Licensing::isLicensed();
+    if (demo) {
+        context->setDrawMode(VSTGUI::kAntiAliasing);
+        context->setFont(VSTGUI::kNormalFontVerySmall);
+        context->setFontColor(VSTGUI::CColor{245,92,82,255});
+        context->drawString("DEMO", VSTGUI::CRect{r.right-48.0,r.top,r.right,r.top+16.0}, VSTGUI::kRightText);
     }
     setDirty(false);
 }
