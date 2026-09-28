@@ -2,6 +2,8 @@ name: Build Windows VST3
 
 on:
   workflow_dispatch:
+  push:
+    branches: [Demo]
 
 jobs:
   build:
@@ -22,12 +24,22 @@ jobs:
         run: |
           $plugin = Get-ChildItem -Path build -Recurse -Directory -Filter Depthorator.vst3 | Select-Object -First 1
           if (-not $plugin) { throw "Depthorator.vst3 bundle not found" }
-          New-Item -ItemType Directory -Force -Path artifact | Out-Null
-          Copy-Item -Path $plugin.FullName -Destination artifact -Recurse -Force
-          if (-not (Test-Path "artifact\Depthorator.vst3\Contents")) { throw "Staged VST3 bundle is incomplete" }
+          New-Item -ItemType Directory -Force -Path artifact-demo | Out-Null
+          New-Item -ItemType Directory -Force -Path artifact-full | Out-Null
+          Copy-Item -Path $plugin.FullName -Destination artifact-demo -Recurse -Force
+          Copy-Item -Path $plugin.FullName -Destination artifact-full -Recurse -Force
+          if (-not (Test-Path "artifact-demo\Depthorator.vst3\Contents")) { throw "Demo VST3 bundle is incomplete" }
+          if (-not (Test-Path "artifact-full\Depthorator.vst3\Contents\Resources")) { throw "Full resources missing" }
+          Copy-Item "license\125A_Depthorator.license" "artifact-full\Depthorator.vst3\Contents\Resources\125A_Depthorator.license" -Force
 
-      - name: Upload VST3
+      - name: Upload DEMO VST3
         uses: actions/upload-artifact@v4
         with:
-          name: Depthorator-Windows-VST3
-          path: artifact
+          name: Depthorator-1.0.0-DEMO
+          path: artifact-demo
+
+      - name: Upload FULL VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: Depthorator-1.0.0-FULL
+          path: artifact-full
