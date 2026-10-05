@@ -1,5 +1,5 @@
 name: Build Windows VST3
-# V2 musical-depth verification
+# V2 restored-room verification
 
 on:
   workflow_dispatch:
