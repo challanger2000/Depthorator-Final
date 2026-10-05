@@ -13,10 +13,12 @@ set(DEPTHORATOR_SOURCES
     entry.cpp
 )
 
-smtg_add_vst3plugin(Depthorator ${DEPTHORATOR_SOURCES})
-
-# V2 installs beside V1 instead of overwriting Depthorator.vst3.
-set_target_properties(Depthorator PROPERTIES OUTPUT_NAME "Depthorator V2")
+# PACKAGE_NAME is the Steinberg-supported bundle/package name. This keeps
+# Depthorator V2.vst3 separate from the V1 Depthorator.vst3 installation.
+smtg_add_vst3plugin(Depthorator
+    PACKAGE_NAME "Depthorator V2"
+    SOURCES_LIST ${DEPTHORATOR_SOURCES}
+)
 
 target_link_libraries(Depthorator
     PRIVATE
