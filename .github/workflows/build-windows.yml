@@ -1,5 +1,5 @@
 name: Build Windows VST3
-# V2 current-head verification
+# V2 musical-depth verification
 
 on:
   workflow_dispatch:
@@ -16,6 +16,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Depth-law regression
+        run: python tests/depth_law_reference.py
 
       - name: Configure
         run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
