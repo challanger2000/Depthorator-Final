@@ -7,6 +7,10 @@ namespace Depthorator {
 
 namespace {
 constexpr double kPi = 3.14159265358979323846;
+inline double zapTiny(double x) {
+    if (!std::isfinite(x)) return 0.0;
+    return std::abs(x) < 1.0e-30 ? 0.0 : x;
+}
 constexpr std::array<double, 8> kBaseTimes {{0.0307,0.0379,0.0433,0.0499,0.0587,0.0671,0.0779,0.0893}};
 constexpr std::array<double, 8> kModRates {{0.071,0.083,0.097,0.109,0.127,0.139,0.151,0.167}};
 constexpr std::array<double, 4> kDiffTimes {{0.0047,0.0063,0.0089,0.0121}};
@@ -71,7 +75,7 @@ void ReverbEngine::process(double inL,double inR,double& outL,double& outR) {
         const auto di=static_cast<std::size_t>(ds); const double frac=ds-static_cast<double>(di);
         const auto p0=(writePos_[i]+b.size()-di)%b.size(), p1=(p0+b.size()-1u)%b.size();
         const double raw=b[p0]*(1.0-frac)+b[p1]*frac;
-        dampState_[i]=(1.0-dampA)*raw+dampA*dampState_[i]; taps[i]=dampState_[i];
+        dampState_[i]=zapTiny((1.0-dampA)*raw+dampA*dampState_[i]); taps[i]=dampState_[i];
         gains[i]=std::pow(10.0,(-3.0*(ds/sampleRate_))/decaySeconds);
     }
 
@@ -88,14 +92,14 @@ void ReverbEngine::process(double inL,double inR,double& outL,double& outR) {
     constexpr std::array<double,8> signs {{1,-1,1,1,-1,1,-1,-1}};
     for(std::size_t i=0;i<kLines;++i) {
         auto& b=buffers_[i];
-        b[writePos_[i]]=d*signs[i]*0.200+matrix[i]*norm*gains[i]*0.986;
+        b[writePos_[i]]=zapTiny(d*signs[i]*0.200+matrix[i]*norm*gains[i]*0.986);
         writePos_[i]=(writePos_[i]+1u)%b.size();
     }
 
     const double l=( taps[0]+taps[1]-taps[2]+taps[3]-taps[4]+taps[5]+taps[6]-taps[7]);
     const double r=(-taps[0]+taps[1]+taps[2]-taps[3]+taps[4]+taps[5]-taps[6]+taps[7]);
-    outL=(l+r*0.11)*0.255;
-    outR=(r+l*0.09)*0.255;
+    outL=zapTiny((l+r*0.11)*0.255);
+    outR=zapTiny((r+l*0.09)*0.255);
 }
 
 } // namespace Depthorator
