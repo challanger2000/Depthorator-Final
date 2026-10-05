@@ -20,14 +20,14 @@ jobs:
       - name: Stage VST3 bundle
         shell: pwsh
         run: |
-          $plugin = Get-ChildItem -Path build -Recurse -Directory -Filter Depthorator.vst3 | Select-Object -First 1
-          if (-not $plugin) { throw "Depthorator.vst3 bundle not found" }
+          $plugin = Get-ChildItem -Path build -Recurse -Directory -Filter "Depthorator V2.vst3" | Select-Object -First 1
+          if (-not $plugin) { throw "Depthorator V2.vst3 bundle not found" }
           New-Item -ItemType Directory -Force -Path artifact | Out-Null
           Copy-Item -Path $plugin.FullName -Destination artifact -Recurse -Force
-          if (-not (Test-Path "artifact\Depthorator.vst3\Contents")) { throw "Staged VST3 bundle is incomplete" }
+          if (-not (Test-Path "artifact\Depthorator V2.vst3\Contents")) { throw "Staged VST3 bundle is incomplete" }
 
       - name: Upload VST3
         uses: actions/upload-artifact@v4
         with:
-          name: Depthorator-Windows-VST3
+          name: Depthorator-V2-Windows-VST3
           path: artifact
