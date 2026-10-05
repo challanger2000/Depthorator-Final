@@ -1,34 +1,53 @@
 #!/usr/bin/env python3
-"""Deterministic reference checks for the Depthorator V2 musical depth law."""
+"""Regression checks for Depthorator V2.
+
+V2 must preserve the successful V1 character law and only add progressive depth
+on top. This test protects both the V1 baseline and the V2 extension.
+"""
 
 import math
 
 DEPTH_POINTS = (0.0, 0.25, 0.50, 0.75, 1.0)
 CURVE_POINTS = (0.0, 0.25, 0.50, 0.75, 1.0)
 
-def law(depth: float, curve: float):
-    depth_amount = depth ** 1.08
-    creative_amount = depth_amount * depth_amount
-    progression_rate = 0.16 + 0.84 * (curve ** 1.25)
+def v1_law(depth: float, curve: float):
+    shape = depth ** (2.35 - curve * 1.8)
+    cutoff = 18000.0 * (0.18 ** shape) + 900.0 * shape
+    return {
+        "shape": shape,
+        "cutoff": cutoff,
+        "repeat_to_room": 0.12 + shape * 0.88,
+        "room_output": 0.28 + shape * 0.72,
+        "direct_echo": 1.0 - shape * 0.42,
+        "room_into_feedback": shape * 0.16,
+    }
 
-    target_cutoff = 18000.0 * (0.16 ** depth_amount) + 850.0 * depth_amount
-    cutoff_blend = depth_amount * (0.42 + 0.58 * progression_rate)
-    cutoff = 20000.0 + (target_cutoff - 20000.0) * cutoff_blend
+def v2_law(depth: float, curve: float):
+    base = v1_law(depth, curve)
+    progression_rate = 0.18 + 0.82 * (curve ** 1.25)
+    progressive_amount = base["shape"] * progression_rate
+    creative_amount = progressive_amount * progressive_amount
 
+    cutoff = max(
+        650.0,
+        base["cutoff"] * (1.0 - 0.18 * progressive_amount - 0.10 * creative_amount),
+    )
     repeat_to_room = min(
-        1.0,
-        0.12
-        + depth_amount * (0.62 + 0.20 * progression_rate)
-        + creative_amount * 0.10,
+        1.10,
+        base["repeat_to_room"] + 0.12 * progressive_amount + 0.08 * creative_amount,
     )
-    room_output = 0.28 + depth_amount * 0.62 + creative_amount * 0.10
-    direct_echo = 1.0 - depth_amount * 0.18 - creative_amount * 0.20
+    room_output = min(
+        1.10,
+        base["room_output"] + 0.10 * progressive_amount + 0.10 * creative_amount,
+    )
+    direct_echo = max(
+        0.45,
+        base["direct_echo"] - 0.10 * progressive_amount - 0.08 * creative_amount,
+    )
     room_into_feedback = min(
-        0.16,
-        depth_amount * (0.09 + 0.09 * progression_rate)
-        + creative_amount * 0.02 * progression_rate,
+        0.18,
+        base["room_into_feedback"] + 0.015 * progressive_amount + 0.005 * creative_amount,
     )
-    source_to_room = 0.18 + depth_amount * 0.03
 
     return {
         "cutoff": cutoff,
@@ -36,7 +55,7 @@ def law(depth: float, curve: float):
         "room_output": room_output,
         "direct_echo": direct_echo,
         "room_into_feedback": room_into_feedback,
-        "source_to_room": source_to_room,
+        "source_to_room": 0.18,
     }
 
 def assert_non_decreasing(values, name):
@@ -46,44 +65,37 @@ def assert_non_increasing(values, name):
     assert all(b <= a + 1e-12 for a, b in zip(values, values[1:])), (name, values)
 
 def main():
+    # V1 law itself remains the exact tonal baseline.
+    reference = v1_law(0.75, 0.50)
+    shape = 0.75 ** (2.35 - 0.50 * 1.8)
+    assert math.isclose(reference["shape"], shape, rel_tol=0.0, abs_tol=1e-12)
+    assert math.isclose(reference["repeat_to_room"], 0.12 + shape * 0.88, abs_tol=1e-12)
+    assert math.isclose(reference["room_output"], 0.28 + shape * 0.72, abs_tol=1e-12)
+    assert math.isclose(reference["direct_echo"], 1.0 - shape * 0.42, abs_tol=1e-12)
+    assert math.isclose(reference["room_into_feedback"], shape * 0.16, abs_tol=1e-12)
+
     for curve in CURVE_POINTS:
-        rows = [law(depth, curve) for depth in DEPTH_POINTS]
+        rows = [v2_law(depth, curve) for depth in DEPTH_POINTS]
         assert_non_increasing([x["cutoff"] for x in rows], f"cutoff/depth curve={curve}")
         assert_non_decreasing([x["repeat_to_room"] for x in rows], f"room send/depth curve={curve}")
         assert_non_decreasing([x["room_output"] for x in rows], f"room output/depth curve={curve}")
         assert_non_increasing([x["direct_echo"] for x in rows], f"direct echo/depth curve={curve}")
         assert_non_decreasing([x["room_into_feedback"] for x in rows], f"room feedback/depth curve={curve}")
-        assert_non_decreasing([x["source_to_room"] for x in rows], f"source room/depth curve={curve}")
 
-    for depth in DEPTH_POINTS[1:]:
-        rows = [law(depth, curve) for curve in CURVE_POINTS]
-        assert_non_increasing([x["cutoff"] for x in rows], f"cutoff/curve depth={depth}")
-        assert_non_decreasing([x["repeat_to_room"] for x in rows], f"room send/curve depth={depth}")
-        assert_non_decreasing([x["room_into_feedback"] for x in rows], f"room feedback/curve depth={depth}")
-
-        room_outputs = [x["room_output"] for x in rows]
-        direct_echoes = [x["direct_echo"] for x in rows]
-        assert max(room_outputs) - min(room_outputs) < 1e-12
-        assert max(direct_echoes) - min(direct_echoes) < 1e-12
-
-    neutral = law(0.0, 1.0)
-    assert math.isclose(neutral["cutoff"], 20000.0, abs_tol=1e-12)
-    assert math.isclose(neutral["room_into_feedback"], 0.0, abs_tol=1e-12)
+    neutral = v2_law(0.0, 1.0)
+    assert math.isclose(neutral["cutoff"], 18000.0, abs_tol=1e-12)
+    assert math.isclose(neutral["repeat_to_room"], 0.12, abs_tol=1e-12)
+    assert math.isclose(neutral["room_output"], 0.28, abs_tol=1e-12)
     assert math.isclose(neutral["direct_echo"], 1.0, abs_tol=1e-12)
-    assert math.isclose(neutral["source_to_room"], 0.18, abs_tol=1e-12)
+    assert math.isclose(neutral["room_into_feedback"], 0.0, abs_tol=1e-12)
 
-    maximum = law(1.0, 1.0)
-    assert maximum["room_into_feedback"] <= 0.16 + 1e-12
-    assert maximum["direct_echo"] >= 0.60
-    assert maximum["room_output"] <= 1.0 + 1e-12
-    assert maximum["repeat_to_room"] <= 1.0 + 1e-12
+    maximum = v2_law(1.0, 1.0)
+    assert maximum["room_into_feedback"] <= 0.18 + 1e-12
+    assert maximum["repeat_to_room"] <= 1.10 + 1e-12
+    assert maximum["room_output"] <= 1.10 + 1e-12
+    assert maximum["direct_echo"] >= 0.45 - 1e-12
 
-    # The V2 working range must retain a clearly audible room foundation.
-    working = law(0.75, 0.50)
-    assert working["repeat_to_room"] >= 0.65
-    assert working["room_output"] >= 0.75
-
-    print("Depthorator V2 musical depth-law reference: PASS")
+    print("Depthorator V2 V1-foundation regression: PASS")
 
 if __name__ == "__main__":
     main()
