@@ -5,8 +5,10 @@
 
 namespace Depthorator {
 
-static const Steinberg::FUID kProcessorUID(0x7C4A2C11, 0x51E34CB1, 0x9F72A2F4, 0x3A7E1C10);
-static const Steinberg::FUID kControllerUID(0x8A6C914E, 0x48F147F7, 0xA3D2B9D0, 0xE5B61A22);
+// V2 has a distinct component identity so V1.0.0 and V2 can coexist.
+// Parameter IDs remain stable inside the V2 product line.
+static const Steinberg::FUID kProcessorUID(0x4D8BCE21, 0xA1F6478E, 0xB35C29D4, 0x7E9206AF);
+static const Steinberg::FUID kControllerUID(0x91A57CD3, 0x2F4B4E68, 0xA6D18B30, 0xC54FE729);
 
 enum ParamID : Steinberg::Vst::ParamID {
     kTime = 100,
