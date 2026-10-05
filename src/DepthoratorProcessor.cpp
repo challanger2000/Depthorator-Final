@@ -14,6 +14,10 @@ using namespace Steinberg::Vst;
 
 namespace {
 constexpr double kPi = 3.14159265358979323846;
+inline double zapTiny(double x) {
+    if (!std::isfinite(x)) return 0.0;
+    return std::abs(x) < 1.0e-30 ? 0.0 : x;
+}
 
 struct QueueCursor {
     IParamValueQueue* queue {nullptr};
@@ -226,7 +230,7 @@ void Processor::processBlock(Sample** in, Sample** out, int32 numSamples, int32 
 
         const double detector = std::max(std::abs(inL), std::abs(inR));
         const double coeff = detector > duckEnvelope_ ? duckAttack : duckRelease;
-        duckEnvelope_ = coeff * duckEnvelope_ + (1.0 - coeff) * detector;
+        duckEnvelope_ = zapTiny(coeff * duckEnvelope_ + (1.0 - coeff) * detector);
         const double duckActivity = duckEnvelope_ / (duckEnvelope_ + 0.030);
         const double duckGain = 1.0 - duck * 0.94 * duckActivity;
 
@@ -257,19 +261,19 @@ void Processor::processBlock(Sample** in, Sample** out, int32 numSamples, int32 
                         inR * 0.18 + wetR * repeatToRoom,
                         revL, revR);
 
-        feedbackLP_L_ = (1.0 - lpA) * wetL + lpA * feedbackLP_L_;
-        feedbackLP_R_ = (1.0 - lpA) * wetR + lpA * feedbackLP_R_;
+        feedbackLP_L_ = zapTiny((1.0 - lpA) * wetL + lpA * feedbackLP_L_);
+        feedbackLP_R_ = zapTiny((1.0 - lpA) * wetR + lpA * feedbackLP_R_);
 
-        const double fbL = feedbackLP_L_ + revL * roomIntoFeedback;
-        const double fbR = feedbackLP_R_ + revR * roomIntoFeedback;
+        const double fbL = zapTiny(feedbackLP_L_ + revL * roomIntoFeedback);
+        const double fbR = zapTiny(feedbackLP_R_ + revR * roomIntoFeedback);
 
         if (mode == 2) {
             const double inputMono = 0.5 * (inL + inR);
-            delayL_[writePos_] = inputMono + fbR * feedback;
-            delayR_[writePos_] = fbL * feedback;
+            delayL_[writePos_] = zapTiny(inputMono + fbR * feedback);
+            delayR_[writePos_] = zapTiny(fbL * feedback);
         } else {
-            delayL_[writePos_] = inL + fbL * feedback;
-            delayR_[writePos_] = inR + fbR * feedback;
+            delayL_[writePos_] = zapTiny(inL + fbL * feedback);
+            delayR_[writePos_] = zapTiny(inR + fbR * feedback);
         }
 
         const double preWidthL = (wetL * directEcho + revL * roomOutput) * duckGain;
