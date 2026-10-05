@@ -208,11 +208,15 @@ void Processor::processBlock(Sample** in, Sample** out, int32 numSamples, int32 
         const double mix = smoothed_[9];
         const int mode = std::clamp(static_cast<int>(std::round(values_[11] * 2.0)), 0, 2);
 
-        const double depthAmount = std::pow(depth, 1.15);
+        const double depthAmount = std::pow(depth, 1.08);
         const double creativeAmount = depthAmount * depthAmount;
-        const double progressionRate = 0.10 + 0.90 * std::pow(curve, 1.35);
-        const double targetCutoff = 18500.0 * std::pow(0.12, depthAmount) + 900.0 * depthAmount;
-        const double cutoffBlend = depthAmount * (0.22 + 0.78 * progressionRate);
+        const double progressionRate = 0.16 + 0.84 * std::pow(curve, 1.25);
+
+        // V2 keeps the successful V1 room energy as the foundation and adds
+        // recursive progression on top. The previous V2 draft attenuated the
+        // room path too much, which made the effect feel smaller and less alive.
+        const double targetCutoff = 18000.0 * std::pow(0.16, depthAmount) + 850.0 * depthAmount;
+        const double cutoffBlend = depthAmount * (0.42 + 0.58 * progressionRate);
         const double cutoff = 20000.0 + (targetCutoff - 20000.0) * cutoffBlend;
         const double lpA = std::exp(-2.0 * kPi * cutoff / sampleRate_);
 
@@ -221,18 +225,18 @@ void Processor::processBlock(Sample** in, Sample** out, int32 numSamples, int32 
         const double dryGain = std::cos(mix * 0.5 * kPi);
         const double wetGain = std::sin(mix * 0.5 * kPi);
 
-        // Musical V2 depth law: the lower half remains a broad working range,
-        // while the squared term makes 75-100% deliberately more dramatic.
-        // The room-feedback ceiling is kept at the V1/V2 safety limit (0.18)
-        // so stronger depth does not buy its effect by reducing stability margin.
-        const double repeatToRoom = 0.08
-                                  + depthAmount * (0.22 + 0.55 * progressionRate)
-                                  + creativeAmount * progressionRate * 0.15;
-        const double roomOutput = 0.20 + depthAmount * 0.55 + creativeAmount * 0.20;
-        const double directEcho = 1.0 - depthAmount * 0.10 - creativeAmount * 0.22;
-        const double roomIntoFeedback = progressionRate *
-                                        (depthAmount * 0.08 + creativeAmount * 0.10);
-        const double sourceToRoom = 0.14 + depthAmount * 0.04;
+        // Preserve a strong audible room field even at moderate DEPTH.
+        // CURVE primarily controls how quickly that room character accumulates
+        // in later repeats instead of reducing the basic amount of reverb.
+        const double repeatToRoom = std::min(1.0,
+            0.12 + depthAmount * (0.62 + 0.20 * progressionRate)
+                 + creativeAmount * 0.10);
+        const double roomOutput = 0.28 + depthAmount * 0.62 + creativeAmount * 0.10;
+        const double directEcho = 1.0 - depthAmount * 0.18 - creativeAmount * 0.20;
+        const double roomIntoFeedback = std::min(0.16,
+            depthAmount * (0.09 + 0.09 * progressionRate)
+            + creativeAmount * 0.02 * progressionRate);
+        const double sourceToRoom = 0.18 + depthAmount * 0.03;
 
         double inL = in[0] ? static_cast<double>(in[0][sample]) : 0.0;
         double inR = channels > 1 && in[1] ? static_cast<double>(in[1][sample]) : inL;
