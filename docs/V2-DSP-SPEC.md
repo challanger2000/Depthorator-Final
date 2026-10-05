@@ -20,14 +20,15 @@ Auditory distance is multi-cue. V2 therefore couples:
 - temporal/transient definition;
 - stereo coherence where appropriate.
 
-This is not claimed to be a geometric room simulator. The user-facing macro mapping is an
-EMPIRICALLY TUNED musical model constrained by published psychoacoustic distance cues and measured
-plugin behaviour.
+This is explicitly **not** a geometric room or physical distance simulator. The target is a cool,
+musically useful depth effect whose behaviour borrows credible perceptual cues. The user-facing macro
+mapping is EMPIRICALLY TUNED for musical impact, constrained by measured stability and predictable
+control behaviour rather than realism.
 
 ## Control invariants
 
 - No additional front-panel controls are required for the initial V2 revision.
-- DEPTH controls the intended maximum front-to-back displacement.
+- DEPTH controls the intended maximum front-to-back effect strength. 20–50% is the primary musical working range, 50–75% clearly audible, and 75–100% intentionally strong/creative.
 - CURVE controls how quickly successive feedback circulations approach that displacement; it must
   not merely behave as a second DEPTH amount control.
 - WIDTH = 0% collapses the complete wet output (echo + room) to mono.
