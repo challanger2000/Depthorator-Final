@@ -323,6 +323,13 @@ tresult PLUGIN_API Processor::process(ProcessData& data) {
 tresult PLUGIN_API Processor::setState(IBStream* state) {
     if (!state) return kInvalidArgument;
     IBStreamer streamer(state, kLittleEndian);
+
+    int32 magic = 0;
+    int32 version = 0;
+    if (!streamer.readInt32(magic) || !streamer.readInt32(version)) return kResultFalse;
+    if (magic != kProcessorStateMagic || version < 1 || version > kProcessorStateVersion)
+        return kResultFalse;
+
     for (auto& value : values_) {
         double x = 0.0;
         if (!streamer.readDouble(x) || !std::isfinite(x)) return kResultFalse;
@@ -336,6 +343,9 @@ tresult PLUGIN_API Processor::setState(IBStream* state) {
 tresult PLUGIN_API Processor::getState(IBStream* state) {
     if (!state) return kInvalidArgument;
     IBStreamer streamer(state, kLittleEndian);
+    if (!streamer.writeInt32(kProcessorStateMagic) ||
+        !streamer.writeInt32(kProcessorStateVersion))
+        return kResultFalse;
     for (const auto value : values_)
         if (!streamer.writeDouble(value)) return kResultFalse;
     return kResultOk;
