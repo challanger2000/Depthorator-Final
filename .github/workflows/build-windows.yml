@@ -1,4 +1,5 @@
 name: Build Windows VST3
+# V2 current-head verification
 
 on:
   workflow_dispatch:
