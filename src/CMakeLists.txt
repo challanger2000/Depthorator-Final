@@ -15,6 +15,9 @@ set(DEPTHORATOR_SOURCES
 
 smtg_add_vst3plugin(Depthorator ${DEPTHORATOR_SOURCES})
 
+# V2 installs beside V1 instead of overwriting Depthorator.vst3.
+set_target_properties(Depthorator PROPERTIES OUTPUT_NAME "Depthorator V2")
+
 target_link_libraries(Depthorator
     PRIVATE
         sdk
