@@ -25,21 +25,23 @@ struct QueueCursor {
 };
 
 bool loadNextPoint(QueueCursor& cursor) {
-    if (!cursor.queue || cursor.pointIndex >= cursor.pointCount) {
+    if (!cursor.queue) {
         cursor.hasNext = false;
         return false;
     }
-    int32 offset = 0;
-    ParamValue value = 0.0;
-    if (cursor.queue->getPoint(cursor.pointIndex, offset, value) != kResultTrue) {
-        cursor.hasNext = false;
-        return false;
+    while (cursor.pointIndex < cursor.pointCount) {
+        int32 offset = 0;
+        ParamValue value = 0.0;
+        const auto index = cursor.pointIndex++;
+        if (cursor.queue->getPoint(index, offset, value) != kResultTrue) continue;
+        if (!std::isfinite(value)) continue;
+        cursor.nextOffset = std::max<int32>(0, offset);
+        cursor.nextValue = std::clamp(value, 0.0, 1.0);
+        cursor.hasNext = true;
+        return true;
     }
-    cursor.nextOffset = std::max<int32>(0, offset);
-    cursor.nextValue = std::isfinite(value) ? std::clamp(value, 0.0, 1.0) : 0.0;
-    ++cursor.pointIndex;
-    cursor.hasNext = true;
-    return true;
+    cursor.hasNext = false;
+    return false;
 }
 
 bool isContinuousParameter(std::size_t index) {
