@@ -14,9 +14,9 @@ set(DEPTHORATOR_SOURCES
 )
 
 # PACKAGE_NAME is the Steinberg-supported bundle/package name. This keeps
-# Depthorator V2.vst3 separate from the V1 Depthorator.vst3 installation.
+# DepthoratorV2.vst3 separate from the V1 Depthorator.vst3 installation.
 smtg_add_vst3plugin(Depthorator
-    PACKAGE_NAME "Depthorator V2"
+    PACKAGE_NAME "DepthoratorV2"
     SOURCES_LIST ${DEPTHORATOR_SOURCES}
 )
 
