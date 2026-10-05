@@ -208,16 +208,25 @@ void Processor::processBlock(Sample** in, Sample** out, int32 numSamples, int32 
         const double mix = smoothed_[9];
         const int mode = std::clamp(static_cast<int>(std::round(values_[11] * 2.0)), 0, 2);
 
-        const double depthAmount = std::pow(depth, 1.08);
-        const double creativeAmount = depthAmount * depthAmount;
-        const double progressionRate = 0.16 + 0.84 * std::pow(curve, 1.25);
+        // Preserve the V1 character law exactly as the tonal foundation.
+        // This was the part users already liked: depth+curve jointly shape
+        // darkness, room send, room output and direct-echo loss.
+        const double v1Shape = std::pow(depth, 2.35 - curve * 1.8);
+        const double v1Cutoff = 18000.0 * std::pow(0.18, v1Shape) + 900.0 * v1Shape;
+        const double v1RepeatToRoom = 0.12 + v1Shape * 0.88;
+        const double v1RoomOutput = 0.28 + v1Shape * 0.72;
+        const double v1DirectEcho = 1.0 - v1Shape * 0.42;
+        const double v1RoomIntoFeedback = v1Shape * 0.16;
 
-        // V2 keeps the successful V1 room energy as the foundation and adds
-        // recursive progression on top. The previous V2 draft attenuated the
-        // room path too much, which made the effect feel smaller and less alive.
-        const double targetCutoff = 18000.0 * std::pow(0.16, depthAmount) + 850.0 * depthAmount;
-        const double cutoffBlend = depthAmount * (0.42 + 0.58 * progressionRate);
-        const double cutoff = 20000.0 + (targetCutoff - 20000.0) * cutoffBlend;
+        // V2 adds progression instead of replacing the V1 sound. CURVE still
+        // retains its familiar V1 tonal role, and additionally controls how
+        // quickly the recursive "moving backwards" behaviour becomes obvious.
+        const double progressionRate = 0.18 + 0.82 * std::pow(curve, 1.25);
+        const double progressiveAmount = v1Shape * progressionRate;
+        const double creativeAmount = progressiveAmount * progressiveAmount;
+
+        const double cutoff = std::max(650.0,
+            v1Cutoff * (1.0 - 0.18 * progressiveAmount - 0.10 * creativeAmount));
         const double lpA = std::exp(-2.0 * kPi * cutoff / sampleRate_);
 
         reverb_.setParameters(smoothed_[4], smoothed_[5], smoothed_[6]);
@@ -225,18 +234,18 @@ void Processor::processBlock(Sample** in, Sample** out, int32 numSamples, int32 
         const double dryGain = std::cos(mix * 0.5 * kPi);
         const double wetGain = std::sin(mix * 0.5 * kPi);
 
-        // Preserve a strong audible room field even at moderate DEPTH.
-        // CURVE primarily controls how quickly that room character accumulates
-        // in later repeats instead of reducing the basic amount of reverb.
-        const double repeatToRoom = std::min(1.0,
-            0.12 + depthAmount * (0.62 + 0.20 * progressionRate)
-                 + creativeAmount * 0.10);
-        const double roomOutput = 0.28 + depthAmount * 0.62 + creativeAmount * 0.10;
-        const double directEcho = 1.0 - depthAmount * 0.18 - creativeAmount * 0.20;
-        const double roomIntoFeedback = std::min(0.16,
-            depthAmount * (0.09 + 0.09 * progressionRate)
-            + creativeAmount * 0.02 * progressionRate);
-        const double sourceToRoom = 0.18 + depthAmount * 0.03;
+        // V1 values remain the baseline. V2 only adds extra room/diffusion at
+        // higher settings, so "cool V1" is preserved while later repeats move
+        // further away and dissolve more strongly.
+        const double repeatToRoom = std::min(1.10,
+            v1RepeatToRoom + 0.12 * progressiveAmount + 0.08 * creativeAmount);
+        const double roomOutput = std::min(1.10,
+            v1RoomOutput + 0.10 * progressiveAmount + 0.10 * creativeAmount);
+        const double directEcho = std::max(0.45,
+            v1DirectEcho - 0.10 * progressiveAmount - 0.08 * creativeAmount);
+        const double roomIntoFeedback = std::min(0.18,
+            v1RoomIntoFeedback + 0.015 * progressiveAmount + 0.005 * creativeAmount);
+        const double sourceToRoom = 0.18;
 
         double inL = in[0] ? static_cast<double>(in[0][sample]) : 0.0;
         double inR = channels > 1 && in[1] ? static_cast<double>(in[1][sample]) : inL;
