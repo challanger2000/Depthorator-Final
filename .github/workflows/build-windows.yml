@@ -1,7 +1,13 @@
 name: Build Windows VST3
+# V1.1 listening candidate
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - v1.1.0
+    paths:
+      - '.github/workflows/build-windows.yml'
 
 jobs:
   build:
