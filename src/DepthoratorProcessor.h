@@ -2,6 +2,7 @@
 
 #include "public.sdk/source/vst/vstaudioeffect.h"
 #include "DepthoratorReverb.h"
+#include "DemoGate.h"
 #include <array>
 #include <vector>
 #include <cstddef>
@@ -55,6 +56,8 @@ private:
     bool delayTimeInitialized_ {false};
 
     ReverbEngine reverb_;
+    bool licensed_ {false};
+    DemoGate demoGate_ {};
 };
 
 } // namespace Depthorator
