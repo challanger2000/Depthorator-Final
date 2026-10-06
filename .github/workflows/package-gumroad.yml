@@ -26,7 +26,7 @@ jobs:
         run: |
           $plugin = Get-ChildItem -Path build -Recurse -Directory -Filter Depthorator.vst3 | Select-Object -First 1
           if (-not $plugin) { throw "Depthorator.vst3 bundle not found" }
-          $root = "release/125A_Depthorator_v1.0.0_Windows_x64"
+          $root = "release/125A_Depthorator_v1.1.0_Windows_x64"
           New-Item -ItemType Directory -Force -Path $root | Out-Null
           Copy-Item -Path $plugin.FullName -Destination $root -Recurse -Force
           Copy-Item README.md, LICENSE.txt, INSTALL_DE.txt, INSTALL_EN.txt -Destination $root
@@ -36,11 +36,11 @@ jobs:
             $rel = $_.FullName.Substring((Resolve-Path $root).Path.Length + 1).Replace('\','/')
             "$hash  $rel"
           } | Set-Content -Encoding ascii "$root/SHA256SUMS.txt"
-          Compress-Archive -Path $root -DestinationPath release/125A_Depthorator_v1.0.0_Windows_x64_Gumroad.zip -CompressionLevel Optimal
+          Compress-Archive -Path $root -DestinationPath release/125A_Depthorator_v1.1.0_Windows_x64_Gumroad.zip -CompressionLevel Optimal
 
       - name: Upload Gumroad package
         uses: actions/upload-artifact@v4
         with:
-          name: 125A_Depthorator_v1.0.0_Windows_x64_Gumroad
-          path: release/125A_Depthorator_v1.0.0_Windows_x64_Gumroad.zip
+          name: 125A_Depthorator_v1.1.0_Windows_x64_Gumroad
+          path: release/125A_Depthorator_v1.1.0_Windows_x64_Gumroad.zip
           if-no-files-found: error
