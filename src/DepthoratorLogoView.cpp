@@ -17,7 +17,7 @@ void DepthoratorLogoView::draw(VSTGUI::CDrawContext* context) {
     const double scale=std::min(r.getWidth()/kMasterWidth,r.getHeight()/kMasterHeight);
     const double ox=r.left+(r.getWidth()-kMasterWidth*scale)*0.5;
     const double oy=r.top +(r.getHeight()-kMasterHeight*scale)*0.5;
-    const VSTGUI::CGraphicsTransform transform(scale,0.,0.,scale,ox,oy);
+    VSTGUI::CGraphicsTransform transform(scale,0.,0.,scale,ox,oy);
     context->setDrawMode(VSTGUI::kAntiAliasing);
     {
         auto* path=context->createGraphicsPath();
