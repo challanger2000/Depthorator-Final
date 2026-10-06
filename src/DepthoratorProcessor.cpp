@@ -1,5 +1,6 @@
 #include "DepthoratorProcessor.h"
 #include "DepthoratorIDs.h"
+#include "LicenseStatus.h"
 #include "base/source/fstreamer.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 #include "pluginterfaces/vst/ivstprocesscontext.h"
@@ -17,10 +18,10 @@ bool nextPoint(ParamCursor& c){c.valid=false;if(!c.q)return false;while(c.index<
 }
 
 Processor::Processor(){setControllerClass(kControllerUID);}
-tresult PLUGIN_API Processor::initialize(FUnknown* c){auto r=AudioEffect::initialize(c);if(r!=kResultOk)return r;addAudioInput(STR16("Stereo In"),SpeakerArr::kStereo);addAudioOutput(STR16("Stereo Out"),SpeakerArr::kStereo);return kResultOk;}
+tresult PLUGIN_API Processor::initialize(FUnknown* c){auto r=AudioEffect::initialize(c);if(r!=kResultOk)return r;addAudioInput(STR16("Stereo In"),SpeakerArr::kStereo);addAudioOutput(STR16("Stereo Out"),SpeakerArr::kStereo);licensed_=Licensing::isLicensed();return kResultOk;}
 tresult PLUGIN_API Processor::setBusArrangements(SpeakerArrangement* i,int32 ni,SpeakerArrangement* o,int32 no){if(ni==1&&no==1&&i[0]==SpeakerArr::kStereo&&o[0]==SpeakerArr::kStereo)return AudioEffect::setBusArrangements(i,ni,o,no);return kResultFalse;}
 tresult PLUGIN_API Processor::canProcessSampleSize(int32 s){return(s==kSample32||s==kSample64)?kResultTrue:kResultFalse;}
-tresult PLUGIN_API Processor::setupProcessing(ProcessSetup& s){sampleRate_=(std::isfinite(s.sampleRate)&&s.sampleRate>1000.0)?s.sampleRate:44100.0;resetDSP();return AudioEffect::setupProcessing(s);}
+tresult PLUGIN_API Processor::setupProcessing(ProcessSetup& s){sampleRate_=(std::isfinite(s.sampleRate)&&s.sampleRate>1000.0)?s.sampleRate:44100.0;resetDSP();demoGate_.configure(sampleRate_,licensed_);return AudioEffect::setupProcessing(s);}
 tresult PLUGIN_API Processor::setActive(TBool s){if(s)resetDSP();return AudioEffect::setActive(s);}
 tresult PLUGIN_API Processor::setProcessing(TBool s){if(s)resetDSP();return kResultOk;}
 void Processor::resetDSP(){const auto n=static_cast<std::size_t>(std::ceil(sampleRate_*5.0))+8u;delayL_.assign(n,0.0);delayR_.assign(n,0.0);writePos_=0;feedbackLP_L_=feedbackLP_R_=0.0;duckEnvelope_=0.0;activeDelaySamples_=oldDelaySamples_=targetDelaySamples_=0.0;timeCrossfade_=1.0;delayTimeInitialized_=false;reverb_.prepare(sampleRate_);reverb_.reset();}
@@ -73,6 +74,8 @@ tresult PLUGIN_API Processor::process(ProcessData& d){
   auto& cur=cursors[p];
   while(cur.valid&&cur.offset<=d.numSamples){values_[p]=cur.value;nextPoint(cur);}
  }
+
+ if(d.symbolicSampleSize==kSample32)demoGate_.process(d.outputs[0].channelBuffers32,ch,d.numSamples);else demoGate_.process(d.outputs[0].channelBuffers64,ch,d.numSamples);
 
  bool silent=true;
  if(d.symbolicSampleSize==kSample32){for(int32 cc=0;cc<ch&&silent;++cc)if(d.outputs[0].channelBuffers32[cc])for(int32 i=0;i<d.numSamples;++i)if(d.outputs[0].channelBuffers32[cc][i]!=0.f){silent=false;break;}}
