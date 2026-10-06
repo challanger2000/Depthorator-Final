@@ -1,5 +1,5 @@
 name: Build Windows VST3
-# V2 V1-foundation verification
+# V2 current listening candidate
 
 on:
   workflow_dispatch:
