@@ -1,4 +1,4 @@
-# Depthorator
+# Depthorator 1.1.0
 
 **Each repeat goes deeper.**
 
@@ -49,9 +49,23 @@ The editor offers **100%** and **150%** zoom. The selected zoom level is stored 
 - Smooth, peak-safe delay-time transitions
 - Parameter/state persistence
 
+## Version 1.1.0
+
+Depthorator 1.1.0 is a conservative quality update. The proven V1 sound and all musical DSP mappings are intentionally preserved.
+
+Changes:
+- sample-accurate parameter automation handling;
+- additional NaN/Inf and denormal protection in feedback/reverb state;
+- realtime-safe processing fallback without callback allocation;
+- corrected 125A master logo;
+- missing percentage readouts added;
+- version label updated to V1.1.0;
+- V1-compatible processor/controller IDs and state format retained.
+
 ## Validation
 
-Final Windows build validation completed in September 2026:
+Final Windows V1.1.0 release validation completed on 6 October 2026:
+
 
 - 125A Plugin Tester: **46 PASS / 0 WARNING / 0 FAIL**
 - Steinberg VST3 Validator: **47 tests passed / 0 failed**
@@ -59,7 +73,10 @@ Final Windows build validation completed in September 2026:
 - Processing setup matrix: **50/50** tested sample-rate/block-size combinations accepted
 - 32-bit and 64-bit sustained processing passed
 - Repeated activation/deactivation, state-transfer and reload stress tests passed
-- GUI 100%/150% close/reopen stress test passed after the lifecycle fix
+- Sample-accurate automation stress passed
+- Offline processing passed
+- I/O/Event isolation passed
+- V1 character regression gate passed
 
 ## Notes
 
