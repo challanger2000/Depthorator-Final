@@ -34,12 +34,16 @@ jobs:
           "path=$($plugin.FullName)" >> $env:GITHUB_OUTPUT
           Write-Host "Plugin: $($plugin.FullName)"
 
-      - name: Download final 125A Plugin Tester
+      - name: Download complete final 125A Plugin Tester package
         shell: pwsh
         run: |
-          $url = "https://raw.githubusercontent.com/challanger2000/125A-Plugin-Tester-Final/main/125A_Plugin_Tester.exe"
-          Invoke-WebRequest -Uri $url -OutFile "125A_Plugin_Tester.exe"
-          if (-not (Test-Path "125A_Plugin_Tester.exe")) { throw "125A Plugin Tester download failed" }
+          $url = "https://raw.githubusercontent.com/challanger2000/125A-Plugin-Tester-Final/main/dist/125A-Plugin-Tester-v0.2.0-Windows-x64.zip"
+          Invoke-WebRequest -Uri $url -OutFile "125A-Plugin-Tester.zip"
+          Expand-Archive -Path "125A-Plugin-Tester.zip" -DestinationPath "tester" -Force
+          $dispatcher = Get-ChildItem -Path "tester" -Recurse -File -Filter "125A_Plugin_Tester.exe" | Select-Object -First 1
+          if (-not $dispatcher) { throw "125A Plugin Tester CLI dispatcher not found in package" }
+          "dispatcher=$($dispatcher.FullName)" >> $env:GITHUB_OUTPUT
+        id: tester
 
       - name: Run 125A Release QA
         shell: pwsh
@@ -47,10 +51,13 @@ jobs:
           125A_PLUGIN_TESTER_REPORT_DIR: ${{ github.workspace }}\qa-reports
         run: |
           New-Item -ItemType Directory -Force -Path $env:125A_PLUGIN_TESTER_REPORT_DIR | Out-Null
-          & ".\125A_Plugin_Tester.exe" "${{ steps.plugin.outputs.path }}"
+          & "${{ steps.tester.outputs.dispatcher }}" "${{ steps.plugin.outputs.path }}"
+          if ($null -eq $LASTEXITCODE) { throw "125A Plugin Tester returned no process exit code" }
           $exitCode = $LASTEXITCODE
           Write-Host "125A Plugin Tester exit code: $exitCode"
           if ($exitCode -ne 0) { exit $exitCode }
+          $reports = Get-ChildItem -Path $env:125A_PLUGIN_TESTER_REPORT_DIR -Recurse -File -ErrorAction SilentlyContinue
+          if (-not $reports -or $reports.Count -eq 0) { throw "125A Plugin Tester produced no QA reports" }
 
       - name: List QA reports
         if: always()
@@ -63,6 +70,16 @@ jobs:
               Get-Content $_.FullName
             }
           }
+
+      - name: Verify mandatory QA reports
+        if: always()
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "qa-reports")) { throw "QA report directory missing" }
+          $txt = Get-ChildItem "qa-reports" -File -Filter "*.txt"
+          $json = Get-ChildItem "qa-reports" -File -Filter "*.json"
+          if ($txt.Count -lt 3) { throw "Too few QA TXT reports: $($txt.Count)" }
+          if ($json.Count -lt 1) { throw "Structured QA JSON report missing" }
 
       - name: Upload QA reports
         if: always()
