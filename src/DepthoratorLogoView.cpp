@@ -1,4 +1,5 @@
 #include "DepthoratorLogoView.h"
+#include "LicenseStatus.h"
 #include "vstgui/lib/cdrawcontext.h"
 #include "vstgui/lib/cgraphicspath.h"
 #include <algorithm>
@@ -3009,6 +3010,13 @@ void DepthoratorLogoView::draw(VSTGUI::CDrawContext* context) {
         context->setFillColor({215,25,32,255});
         context->drawGraphicsPath(path,VSTGUI::CDrawContext::kPathFilledEvenOdd,&transform);
         path->forget();
+    }
+    static const bool demo = !Licensing::isLicensed();
+    if (demo) {
+        context->setDrawMode(VSTGUI::kAntiAliasing);
+        context->setFont(VSTGUI::kNormalFontVerySmall);
+        context->setFontColor(VSTGUI::CColor{245,92,82,255});
+        context->drawString("DEMO", VSTGUI::CRect{r.right-48.0,r.top,r.right,r.top+16.0}, VSTGUI::kRightText);
     }
     setDirty(false);
 }
