@@ -211,7 +211,11 @@ void Processor::processBlock(Sample** in, Sample** out, int32 numSamples, int32 
         // Preserve the V1 character law exactly as the tonal foundation.
         // This was the part users already liked: depth+curve jointly shape
         // darkness, room send, room output and direct-echo loss.
-        const double v1Shape = std::pow(depth, 2.35 - curve * 1.8);
+        // Musical V2 remap: keep the proven V1 curve family, but move its
+        // useful character lower in the DEPTH range. This avoids the current
+        // behaviour where 50% feels almost dry and 100% is the first "good" spot.
+        const double depthForCharacter = std::clamp(std::pow(depth, 0.72), 0.0, 1.0);
+        const double v1Shape = std::pow(depthForCharacter, 2.35 - curve * 1.8);
         const double v1Cutoff = 18000.0 * std::pow(0.18, v1Shape) + 900.0 * v1Shape;
         const double v1RepeatToRoom = 0.12 + v1Shape * 0.88;
         const double v1RoomOutput = 0.28 + v1Shape * 0.72;
