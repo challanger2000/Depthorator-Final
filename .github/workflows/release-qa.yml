@@ -1,4 +1,5 @@
 name: V1.1 Release QA
+# rerun after setProcessing lifecycle fix
 
 on:
   workflow_dispatch:
