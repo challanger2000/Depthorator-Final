@@ -3,7 +3,7 @@ name: Package Gumroad Release
 on:
   push:
     branches:
-      - main
+      - v1.1.0
     paths:
       - '.github/workflows/package-gumroad.yml'
   workflow_dispatch:
