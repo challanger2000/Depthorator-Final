@@ -1,0 +1,73 @@
+name: V1.1 Release QA
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - v1.1.0
+    paths:
+      - '.github/workflows/release-qa.yml'
+
+jobs:
+  release-qa:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: V1 character regression
+        run: python tests/v1_character_regression.py
+
+      - name: Configure
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Build plugin
+        run: cmake --build build --config Release --target Depthorator --parallel
+
+      - name: Locate VST3 bundle
+        id: plugin
+        shell: pwsh
+        run: |
+          $plugin = Get-ChildItem -Path build -Recurse -Directory -Filter Depthorator.vst3 | Select-Object -First 1
+          if (-not $plugin) { throw "Depthorator.vst3 bundle not found" }
+          "path=$($plugin.FullName)" >> $env:GITHUB_OUTPUT
+          Write-Host "Plugin: $($plugin.FullName)"
+
+      - name: Download final 125A Plugin Tester
+        shell: pwsh
+        run: |
+          $url = "https://raw.githubusercontent.com/challanger2000/125A-Plugin-Tester-Final/main/125A_Plugin_Tester.exe"
+          Invoke-WebRequest -Uri $url -OutFile "125A_Plugin_Tester.exe"
+          if (-not (Test-Path "125A_Plugin_Tester.exe")) { throw "125A Plugin Tester download failed" }
+
+      - name: Run 125A Release QA
+        shell: pwsh
+        env:
+          125A_PLUGIN_TESTER_REPORT_DIR: ${{ github.workspace }}\qa-reports
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:125A_PLUGIN_TESTER_REPORT_DIR | Out-Null
+          & ".\125A_Plugin_Tester.exe" "${{ steps.plugin.outputs.path }}"
+          $exitCode = $LASTEXITCODE
+          Write-Host "125A Plugin Tester exit code: $exitCode"
+          if ($exitCode -ne 0) { exit $exitCode }
+
+      - name: List QA reports
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path "qa-reports") {
+            Get-ChildItem -Path "qa-reports" -Recurse | Format-Table FullName,Length
+            Get-ChildItem -Path "qa-reports" -Filter "*.txt" | ForEach-Object {
+              Write-Host "===== $($_.Name) ====="
+              Get-Content $_.FullName
+            }
+          }
+
+      - name: Upload QA reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Depthorator-V1.1-Release-QA
+          path: qa-reports
+          if-no-files-found: warn
