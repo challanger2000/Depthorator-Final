@@ -1,3 +1,14 @@
+# ⚠️ REJECTED EXPERIMENT — DO NOT USE / DO NOT RELEASE
+
+**Branch:** `v2.0.0`  
+**Status:** ABORTED / REJECTED  
+**Reason:** The experimental V2 depth/progression redesign was judged musically inferior to the proven V1 sound.  
+**Release basis:** Use `v1.1.0` for the maintained release line.
+
+This branch is kept only as an engineering archive. It must not be packaged, merged into the release line, or used as a product build.
+
+---
+
 # Depthorator
 
 **Each repeat goes deeper.**
