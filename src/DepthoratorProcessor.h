@@ -25,13 +25,13 @@ public:
     Steinberg::tresult PLUGIN_API getState(Steinberg::IBStream* state) override;
 
 private:
-    void readParameterChanges(Steinberg::Vst::IParameterChanges* changes);
     void resetDSP();
     double currentDelaySeconds(const Steinberg::Vst::ProcessData& data) const;
 
     template <typename Sample>
-    void processBlock(Sample** inputs, Sample** outputs, Steinberg::int32 numSamples,
-                      Steinberg::int32 channels, const Steinberg::Vst::ProcessData& data);
+    void processBlock(Sample** inputs, Sample** outputs, Steinberg::int32 startSample,
+                      Steinberg::int32 numSamples, Steinberg::int32 channels,
+                      const Steinberg::Vst::ProcessData& data);
 
     std::array<double, 12> values_ {{
         0.375, 0.42, 0.0, 0.5, 0.74, 0.48, 0.55, 0.75, 0.25, 0.35, 1.0, 0.5
