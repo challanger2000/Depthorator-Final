@@ -211,11 +211,10 @@ void Processor::processBlock(Sample** in, Sample** out, int32 numSamples, int32 
         // Preserve the V1 character law exactly as the tonal foundation.
         // This was the part users already liked: depth+curve jointly shape
         // darkness, room send, room output and direct-echo loss.
-        // Musical V2 remap: keep the proven V1 curve family, but move its
-        // useful character lower in the DEPTH range. This avoids the current
-        // behaviour where 50% feels almost dry and 100% is the first "good" spot.
-        const double depthForCharacter = std::clamp(std::pow(depth, 0.72), 0.0, 1.0);
-        const double v1Shape = std::pow(depthForCharacter, 2.35 - curve * 1.8);
+        // Preserve the exact V1 DEPTH/CURVE response as the tonal foundation.
+        // Any V2 improvement must add character without moving the familiar V1
+        // sweet spots around.
+        const double v1Shape = std::pow(depth, 2.35 - curve * 1.8);
         const double v1Cutoff = 18000.0 * std::pow(0.18, v1Shape) + 900.0 * v1Shape;
         const double v1RepeatToRoom = 0.12 + v1Shape * 0.88;
         const double v1RoomOutput = 0.28 + v1Shape * 0.72;
@@ -283,10 +282,15 @@ void Processor::processBlock(Sample** in, Sample** out, int32 numSamples, int32 
             wetL = wetR = mono;
         }
 
+        const double delayMid = 0.5 * (wetL + wetR);
+        const double delaySide = 0.5 * (wetL - wetR) * width;
+        const double roomInL = delayMid + delaySide;
+        const double roomInR = delayMid - delaySide;
+
         double revL = 0.0;
         double revR = 0.0;
-        reverb_.process(inL * sourceToRoom + wetL * repeatToRoom,
-                        inR * sourceToRoom + wetR * repeatToRoom,
+        reverb_.process(inL * sourceToRoom + roomInL * repeatToRoom,
+                        inR * sourceToRoom + roomInR * repeatToRoom,
                         revL, revR);
 
         feedbackLP_L_ = zapTiny((1.0 - lpA) * wetL + lpA * feedbackLP_L_);
@@ -304,10 +308,17 @@ void Processor::processBlock(Sample** in, Sample** out, int32 numSamples, int32 
             delayR_[writePos_] = zapTiny(inR + fbR * feedback);
         }
 
-        const double preWidthL = (wetL * directEcho + revL * roomOutput) * duckGain;
-        const double preWidthR = (wetR * directEcho + revR * roomOutput) * duckGain;
+        const double delayOutL = roomInL * directEcho;
+        const double delayOutR = roomInR * directEcho;
+        const double preWidthL = (delayOutL + revL * roomOutput) * duckGain;
+        const double preWidthR = (delayOutR + revR * roomOutput) * duckGain;
+
+        // Preserve the expansive V1 room for ordinary WIDTH settings. Only the
+        // lower quarter progressively collapses the complete wet field so that
+        // WIDTH=0 remains a true mono wet output.
+        const double finalWidth = width >= 0.25 ? 1.0 : width / 0.25;
         const double fxMid = 0.5 * (preWidthL + preWidthR);
-        const double fxSide = 0.5 * (preWidthL - preWidthR) * width;
+        const double fxSide = 0.5 * (preWidthL - preWidthR) * finalWidth;
         double fxL = fxMid + fxSide;
         double fxR = fxMid - fxSide;
 
