@@ -1,5 +1,5 @@
 name: Build Windows VST3
-# V1.1 listening candidate retry
+# V1.1 technical-hardening verification
 
 on:
   workflow_dispatch:
@@ -16,6 +16,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: V1 character regression
+        run: python tests/v1_character_regression.py
 
       - name: Configure
         run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
