@@ -1,16 +1,15 @@
-name: Build Windows VST3
-# V1.1 technical-hardening verification
+name: Build Depthorator v1.1.0 Demo
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - v1.1.0
+      - demo/v1.1.0
     paths:
       - '.github/workflows/build-windows.yml'
 
 jobs:
-  build:
+  demo-release:
     runs-on: windows-2022
 
     steps:
@@ -26,17 +25,76 @@ jobs:
       - name: Build plugin
         run: cmake --build build --config Release --target Depthorator --parallel
 
-      - name: Stage VST3 bundle
+      - name: Locate VST3 bundle
+        id: plugin
         shell: pwsh
         run: |
           $plugin = Get-ChildItem -Path build -Recurse -Directory -Filter Depthorator.vst3 | Select-Object -First 1
           if (-not $plugin) { throw "Depthorator.vst3 bundle not found" }
-          New-Item -ItemType Directory -Force -Path artifact | Out-Null
-          Copy-Item -Path $plugin.FullName -Destination artifact -Recurse -Force
-          if (-not (Test-Path "artifact\Depthorator.vst3\Contents")) { throw "Staged VST3 bundle is incomplete" }
+          "path=$($plugin.FullName)" >> $env:GITHUB_OUTPUT
 
-      - name: Upload VST3
+      - name: Download final portable 125A Plugin Tester
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/challanger2000/125A-Plugin-Tester-Final/main/125A_Plugin_Tester.exe" -OutFile "125A_Plugin_Tester.exe"
+          if (-not (Test-Path "125A_Plugin_Tester.exe")) { throw "125A Plugin Tester download failed" }
+
+      - name: Run 125A Release QA
+        shell: pwsh
+        env:
+          125A_PLUGIN_TESTER_REPORT_DIR: ${{ github.workspace }}\qa-reports
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:125A_PLUGIN_TESTER_REPORT_DIR | Out-Null
+          $proc = Start-Process -FilePath ".\125A_Plugin_Tester.exe" -ArgumentList @("--portable-test", "${{ steps.plugin.outputs.path }}") -Wait -PassThru
+          if ($proc.ExitCode -ne 0) { exit $proc.ExitCode }
+          $reports = Get-ChildItem -Path $env:125A_PLUGIN_TESTER_REPORT_DIR -Recurse -File -ErrorAction SilentlyContinue
+          if (-not $reports -or $reports.Count -eq 0) { throw "125A Plugin Tester produced no QA reports" }
+
+      - name: Verify Demo package has no full license
+        shell: pwsh
+        run: |
+          $plugin = "${{ steps.plugin.outputs.path }}"
+          $license = Join-Path $plugin "Contents\Resources\125A_Depthorator.license"
+          if (Test-Path $license) { throw "Demo package unexpectedly contains full license" }
+
+      - name: Assemble Gumroad Demo package
+        shell: pwsh
+        run: |
+          $root = "release/125A_Depthorator_v1.1.0_Windows_x64_DEMO"
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          Copy-Item -Path "${{ steps.plugin.outputs.path }}" -Destination $root -Recurse -Force
+          Copy-Item README.md, LICENSE.txt, INSTALL_DE.txt, INSTALL_EN.txt -Destination $root
+          Copy-Item docs/Depthorator_Handbuch_DE.pdf, docs/Depthorator_Manual_EN.pdf -Destination $root
+          @"
+          125A Depthorator v1.1.0 DEMO
+          Windows x64 / VST3
+
+          Demo behavior:
+          - 60 seconds normal processing
+          - 3 seconds audio interruption
+          - cycle repeats
+          - 10 ms fade-out / fade-in
+
+          Install the VST3 as described in INSTALL_DE.txt or INSTALL_EN.txt.
+          "@ | Set-Content -Encoding utf8 "$root/DEMO_README.txt"
+          Get-ChildItem $root -Recurse -File | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            $rel = $_.FullName.Substring((Resolve-Path $root).Path.Length + 1).Replace('\','/')
+            "$hash  $rel"
+          } | Set-Content -Encoding ascii "$root/SHA256SUMS.txt"
+          Compress-Archive -Path $root -DestinationPath release/125A_Depthorator_v1.1.0_Windows_x64_Gumroad_DEMO.zip -CompressionLevel Optimal
+
+      - name: Upload QA reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Depthorator-Windows-VST3
-          path: artifact
+          name: Depthorator-v1.1.0-Demo-QA
+          path: qa-reports
+          if-no-files-found: warn
+
+      - name: Upload Gumroad Demo package
+        uses: actions/upload-artifact@v4
+        with:
+          name: 125A_Depthorator_v1.1.0_Windows_x64_Gumroad_DEMO
+          path: release/125A_Depthorator_v1.1.0_Windows_x64_Gumroad_DEMO.zip
+          if-no-files-found: error
