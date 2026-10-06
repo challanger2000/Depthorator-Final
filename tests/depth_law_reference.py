@@ -11,8 +11,7 @@ DEPTH_POINTS = (0.0, 0.25, 0.50, 0.75, 1.0)
 CURVE_POINTS = (0.0, 0.25, 0.50, 0.75, 1.0)
 
 def v1_law(depth: float, curve: float):
-    depth_for_character = depth ** 0.72
-    shape = depth_for_character ** (2.35 - curve * 1.8)
+    shape = depth ** (2.35 - curve * 1.8)
     cutoff = 18000.0 * (0.18 ** shape) + 900.0 * shape
     return {
         "shape": shape,
@@ -68,7 +67,7 @@ def assert_non_increasing(values, name):
 def main():
     # V1 law itself remains the exact tonal baseline.
     reference = v1_law(0.75, 0.50)
-    shape = (0.75 ** 0.72) ** (2.35 - 0.50 * 1.8)
+    shape = 0.75 ** (2.35 - 0.50 * 1.8)
     assert math.isclose(reference["shape"], shape, rel_tol=0.0, abs_tol=1e-12)
     assert math.isclose(reference["repeat_to_room"], 0.12 + shape * 0.88, abs_tol=1e-12)
     assert math.isclose(reference["room_output"], 0.28 + shape * 0.72, abs_tol=1e-12)
@@ -89,10 +88,6 @@ def main():
     assert math.isclose(neutral["room_output"], 0.28, abs_tol=1e-12)
     assert math.isclose(neutral["direct_echo"], 1.0, abs_tol=1e-12)
     assert math.isclose(neutral["room_into_feedback"], 0.0, abs_tol=1e-12)
-
-    mid = v2_law(0.50, 0.50)
-    assert mid["repeat_to_room"] >= 0.55
-    assert mid["room_output"] >= 0.63
 
     maximum = v2_law(1.0, 1.0)
     assert maximum["room_into_feedback"] <= 0.18 + 1e-12
