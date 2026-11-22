@@ -2,9 +2,11 @@
 
 #include "public.sdk/source/vst/vstaudioeffect.h"
 #include "DepthoratorReverb.h"
+#include "AutoClearCore.h"
 #include <array>
 #include <vector>
 #include <cstddef>
+#include <cstdint>
 
 namespace Depthorator {
 
@@ -33,13 +35,20 @@ private:
                       Steinberg::int32 numSamples, Steinberg::int32 channels,
                       const Steinberg::Vst::ProcessData& data);
 
-    std::array<double, 12> values_ {{
-        0.375, 0.42, 0.0, 0.5, 0.74, 0.48, 0.55, 0.75, 0.25, 0.35, 1.0, 0.5
+    std::array<double, 16> values_ {{
+        0.375, 0.42, 0.0, 0.5, 0.74, 0.48, 0.55, 0.75, 0.25, 0.35, 1.0, 0.5,
+        0.0, 1.0, 0.5, 38.0 / 498.0
     }};
 
     double sampleRate_ {44100.0};
     std::vector<double> delayL_;
     std::vector<double> delayR_;
+    // Lazy invalidation makes a full 5-second delay clear O(1) on the audio
+    // thread, while allowing the incoming note's latest attack to survive.
+    std::vector<std::uint64_t> delayFrame_;
+    std::uint64_t frameSerial_ {0};
+    std::uint64_t liveAfterFrame_ {0};
+    AutoClearCore autoClear_;
     std::size_t writePos_ {0};
     double feedbackLP_L_ {0.0};
     double feedbackLP_R_ {0.0};

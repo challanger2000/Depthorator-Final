@@ -1,0 +1,60 @@
+name: Auto Clear Windows VST3 Development QA
+
+on:
+  push:
+    branches:
+      - feature/autoclear-qdelay-20261122
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-vst3:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+
+      - name: Configure Windows x64
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DBUILD_TESTING=ON
+
+      - name: Compile VST3 and release-active core regression
+        run: cmake --build build --config Release --target Depthorator DepthoratorAutoClearTests --parallel
+
+      - name: Auto Clear deterministic DSP contract
+        run: ctest --test-dir build -C Release --output-on-failure -R depthorator_autoclear_core
+
+      - name: Build official Steinberg validator
+        run: cmake --build build --config Release --target validator --parallel
+
+      - name: Validate packaged VST3 and stage exact bundle
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $bundle = Get-ChildItem build -Directory -Recurse -Filter Depthorator.vst3 |
+            Where-Object { Test-Path (Join-Path $_.FullName 'Contents/x86_64-win/Depthorator.vst3') } |
+            Select-Object -First 1
+          if (-not $bundle) { throw 'Windows VST3 bundle/inner binary not found' }
+          $validator = Get-ChildItem build -File -Recurse -Filter validator.exe | Select-Object -First 1
+          if (-not $validator) { throw 'Steinberg validator.exe was not built' }
+          & $validator.FullName $bundle.FullName 2>&1 | Tee-Object -FilePath validator-result.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Steinberg validator failed' }
+          New-Item -ItemType Directory -Force -Path 'artifact' | Out-Null
+          Copy-Item -LiteralPath $bundle.FullName -Destination 'artifact' -Recurse -Force
+          $binary = 'artifact/Depthorator.vst3/Contents/x86_64-win/Depthorator.vst3'
+          if (-not (Test-Path $binary)) { throw 'Staged VST3 binary missing' }
+          $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $binary).Path)
+          if ($bytes.Length -lt 65536 -or $bytes[0] -ne 77 -or $bytes[1] -ne 90) {
+            throw 'Staged VST3 is not a plausible PE-x64 binary'
+          }
+          Get-FileHash $binary -Algorithm SHA256 | Format-List
+
+      - name: Upload development VST3 (not a release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Depthorator-AutoClear-1.2-dev-Win64-VST3
+          path: |
+            artifact/
+            validator-result.txt
+          if-no-files-found: error

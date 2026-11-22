@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(Depthorator VERSION 1.1.0)
+project(Depthorator VERSION 1.2.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -21,3 +21,11 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(vst3sdk)
 
 add_subdirectory(src)
+
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(DepthoratorAutoClearTests tests/AutoClearCoreTests.cpp)
+    target_include_directories(DepthoratorAutoClearTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_compile_features(DepthoratorAutoClearTests PRIVATE cxx_std_17)
+    add_test(NAME depthorator_autoclear_core COMMAND DepthoratorAutoClearTests)
+endif()
