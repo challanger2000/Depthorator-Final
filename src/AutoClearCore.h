@@ -14,6 +14,8 @@ public:
         double wetGain {1.0};
         bool clearOld {false};
         std::uint32_t keepRecentFrames {0};
+        bool startedFullClear {false};
+        bool muteFeedback {false};
     };
 
     void prepare(double sampleRate) noexcept {
@@ -29,6 +31,7 @@ public:
     void reset() noexcept {
         phase_ = Phase::Idle;
         gain_ = 1.0;
+        killing_ = false;
         fast_ = slow_ = 0.0;
         sinceOnset_ = 0;
         fadeStep_ = 0.0;
@@ -45,6 +48,7 @@ public:
         if (!enabled_ || amount_ == 0.0) {
             phase_ = Phase::Idle;
             gain_ = 1.0;
+            killing_ = false;
             fast_ = slow_ = 0.0;
             sinceOnset_ = 0;
         }
@@ -58,19 +62,23 @@ public:
         fast_ += (peak > fast_ ? fastUp_ : fastDown_) * (peak - fast_);
         slow_ += (peak > slow_ ? slowUp_ : slowDown_) * (peak - slow_);
 
+        bool startedFullClear = false;
         if (sinceOnset_ > refractoryFrames_ &&
             peak > threshold_ && fast_ > slow_ * 2.2 &&
             phase_ != Phase::FadeOut) {
             startFade();
+            startedFullClear = killing_;
         }
         if (sinceOnset_ < 0x3fffffffu) ++sinceOnset_;
 
+        // Never preserve old echoes through the just-cleared recent window.
+        const bool muteFeedback = killing_ && phase_ == Phase::FadeOut;
         bool clear = false;
         if (phase_ == Phase::FadeOut) {
             gain_ = std::max(floor_, gain_ - fadeStep_);
             if (gain_ <= floor_) {
                 gain_ = floor_;
-                clear = amount_ >= 0.999999;
+                clear = killing_;
                 phase_ = Phase::FadeIn;
                 fadeStep_ = (1.0 - gain_) /
                     std::max(1.0, fadeMs_ * rate_ * 0.001);
@@ -81,7 +89,7 @@ public:
         } else {
             gain_ = 1.0;
         }
-        return {gain_, clear, keepFrames_};
+        return {gain_, clear, keepFrames_, startedFullClear, muteFeedback};
     }
 
 private:
@@ -89,6 +97,7 @@ private:
 
     void startFade() noexcept {
         sinceOnset_ = 0;
+        killing_ = amount_ >= 0.999999;
         floor_ = 1.0 - amount_;
         // Full kill needs a short fade to preserve the incoming note's first repeat.
         const double downMs = amount_ >= 0.999999 ? std::min(fadeMs_, 12.0) : fadeMs_;
@@ -103,6 +112,7 @@ private:
     double amount_ {1.0};
     double threshold_ {0.0316227766};
     double fadeMs_ {40.0};
+    bool killing_ {false};
     double fast_ {0.0}, slow_ {0.0};
     double fastUp_ {0.0}, fastDown_ {0.0}, slowUp_ {0.0}, slowDown_ {0.0};
     double gain_ {1.0}, floor_ {0.0}, fadeStep_ {0.0};

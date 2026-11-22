@@ -32,7 +32,9 @@ released package.
   100% causes a full prior-tail invalidation.
 - Threshold (-60 to 0 dBFS, default -30 dBFS): audio-onset detection.
 - Fade (2–500 ms, default 40 ms): fade-in duration, with the full-kill
-  fade-out limited to 12 ms. The first attack's recent delay samples survive.
+  fade-out limited to 12 ms. Feedback writes are muted during full-kill fade-out; only frames written
+  since the new onset survive, preventing old feedback from re-entering the
+  cleared loop while retaining the new attack.
 - A dual-timescale onset detector (fast 1/50 ms and slow 60/400 ms), with a
   90-ms refractory interval, is the reviewed reference behavior.
 - 100% clear does not allocate, lock, or traverse long buffers in the callback:

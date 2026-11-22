@@ -25,15 +25,21 @@ int main() {
     kill.configure(true, 1.0, -30.0, 40.0);
     for (int i = 0; i < 6000; ++i) kill.process(0.0, 0.0);
     int clears = 0;
+    int onsets = 0;
+    int muteFrames = 0;
     double low = 1.0;
     std::uint32_t preserved = 0;
     for (int i = 0; i < 9000; ++i) {
         const auto f = kill.process(i == 0 ? 0.8 : 0.0, 0.0);
         low = std::min(low, f.wetGain);
+        onsets += f.startedFullClear ? 1 : 0;
+        muteFrames += f.muteFeedback ? 1 : 0;
+        if (f.clearOld) REQUIRE(f.muteFeedback);
         if (f.clearOld) { ++clears; preserved = f.keepRecentFrames; }
         REQUIRE(std::isfinite(f.wetGain) && f.wetGain >= 0.0 && f.wetGain <= 1.0);
     }
     REQUIRE(clears == 1);
+    REQUIRE(onsets == 1 && muteFrames > 0);
     REQUIRE(low == 0.0);
     REQUIRE(preserved >= 64 && preserved <= 12u * 48u + 64u);
     REQUIRE(kill.process(0.0, 0.0).wetGain == 1.0);
@@ -48,6 +54,7 @@ int main() {
         const auto f = duck.process(i == 0 ? 0.8 : 0.0, 0.0);
         minimum = std::min(minimum, f.wetGain);
         partialClears += f.clearOld ? 1 : 0;
+        REQUIRE(!f.startedFullClear && !f.muteFeedback);
     }
     REQUIRE(partialClears == 0);
     REQUIRE(minimum >= 0.499 && minimum < 0.55);
