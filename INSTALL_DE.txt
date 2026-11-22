@@ -1,15 +1,21 @@
-INSTALLATION - Depthorator 1.1.0 - Windows x64 VST3
+INSTALLATION — 125A Depthorator 1.2.0 — Windows x64 VST3
 
-1. ZIP-Datei vollständig entpacken.
-2. Den kompletten Ordner "Depthorator.vst3" nach
+1. Fender Studio Pro / Studio One und andere DAWs vollständig schließen.
+2. ZIP vollständig entpacken.
+3. Vorherigen Ordner "Depthorator.vst3" oder "125A Depthorator.vst3"
+   im VST3-Verzeichnis sichern und entfernen.
+   Die VST3-Klassen-IDs sind gleich geblieben; beide Versionen dürfen
+   NICHT parallel installiert bleiben.
+4. Den vollständigen Ordner "125A Depthorator.vst3" nach
    C:\Program Files\Common Files\VST3\
-   kopieren.
-3. Eine eventuell vorhandene ältere Version vorher ersetzen.
-4. DAW neu starten.
-5. Falls Depthorator nicht erscheint, den VST3-Plugin-Scan der DAW erneut ausführen.
+   kopieren. Nicht nur die darin befindliche DLL kopieren.
+5. DAW starten und VST3-Plug-ins bei Bedarf erneut scannen.
 
-Wichtig:
-- Immer den kompletten .vst3-Bundle-Ordner kopieren.
-- Vor dem Ersetzen einer älteren Version die DAW schließen.
-- Diese Ausgabe ist die Windows-x64-Version 1.1.0.
-- macOS-Versionen sind nicht Bestandteil dieses Pakets.
+NEU IN V1.2: AUTO CLEAR AN/AUS.
+AUS = originaler Delay-Verlauf. AN = erster Ton unverändert; erst beim
+folgenden klar erkannten Ton wird die bisherige Echo-Fahne weich ausge-
+blendet und gelöscht. Der neue Ton behält seine eigenen Wiederholungen.
+Für überlappende, lückenlose Noten ohne MIDI-Ereignisse kann die reine
+Audio-Anschlagerkennung keine garantierte Notentrennung leisten.
+
+Windows x64 VST3. Keine zusätzlichen Installationsprogramme erforderlich.

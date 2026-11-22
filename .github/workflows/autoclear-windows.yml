@@ -119,6 +119,58 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Official validator failed on unzipped shipping bundle' }
           Get-FileHash $zipBinary -Algorithm SHA256 | Format-List
           Write-Host "125A_NAMING_PASS: outer and inner $expected, factory and class IDs verified"
+      - name: Assemble canonical Windows Gumroad-format candidate ZIP
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $archiveName = '125A_Depthorator_v1.2.0_Windows_x64_Gumroad.zip'
+          $bundleName = '125A Depthorator.vst3'
+          $bundle = Join-Path (Resolve-Path 'artifact').Path $bundleName
+          if (-not (Test-Path $bundle)) { throw 'The staged canonical VST3 directory is missing' }
+          New-Item -ItemType Directory -Force -Path 'candidate' | Out-Null
+          Copy-Item -LiteralPath $bundle -Destination 'candidate' -Recurse -Force
+          foreach ($file in @('INSTALL_DE.txt','INSTALL_EN.txt','README.md','LICENSE.txt')) {
+            if (-not (Test-Path $file)) { throw "Release documentation is missing: $file" }
+            Copy-Item -LiteralPath $file -Destination 'candidate' -Force
+          }
+          Compress-Archive -Path 'candidate/*' -DestinationPath $archiveName -CompressionLevel Optimal -Force
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $archiveName).Path)
+          try {
+            $entries = @($archive.Entries | ForEach-Object { $_.FullName.Replace('\\','/') })
+            $dllName = "$bundleName/Contents/x86_64-win/$bundleName"
+            if ($entries -cnotcontains $dllName) { throw 'ZIP missing the exact inner 125A-branded VST3 binary' }
+            if ($entries | Where-Object { $_ -match '^artifact/' -or $_ -match '^candidate/' }) {
+              throw 'ZIP incorrectly contains CI staging directories'
+            }
+            foreach ($name in @('INSTALL_DE.txt','INSTALL_EN.txt','README.md','LICENSE.txt')) {
+              if ($entries -cnotcontains $name) { throw "Gumroad candidate omits $name" }
+            }
+            $metadata = $archive.GetEntry("$bundleName/Contents/Resources/moduleinfo.json")
+            if (-not $metadata) { throw 'Gumroad ZIP missing plugin metadata' }
+            $reader = [System.IO.StreamReader]::new($metadata.Open())
+            try { $parsed = $reader.ReadToEnd() | ConvertFrom-Json -ErrorAction Stop }
+            finally { $reader.Dispose() }
+            if ($parsed.Name -cne '125A Depthorator') { throw 'Gumroad ZIP embeds wrong factory name' }
+          } finally { $archive.Dispose() }
+          $expanded = Join-Path (Get-Location).Path 'candidate-unpacked'
+          Expand-Archive -LiteralPath $archiveName -DestinationPath $expanded -Force
+          $binary = Join-Path $expanded "$bundleName/Contents/x86_64-win/$bundleName"
+          $original = Join-Path $bundle "Contents/x86_64-win/$bundleName"
+          if (-not (Test-Path $binary) -or
+              (Get-FileHash $binary -Algorithm SHA256).Hash -cne (Get-FileHash $original -Algorithm SHA256).Hash) {
+            throw 'Gumroad ZIP roundtrip changed the Windows plugin binary'
+          }
+          (Get-FileHash $archiveName -Algorithm SHA256).Hash | Out-File -Encoding ascii 'gumroad-candidate-sha256.txt'
+          Write-Host "125A_GUMROAD_CANDIDATE_ZIP_PASS: $archiveName; no staging folder; exact branded VST3 and documents"
+      - name: Upload release-format candidate, NOT owner-approved release
+        uses: actions/upload-artifact@v4
+        with:
+          name: Depthorator-v1.2.0-Gumroad-Format-CANDIDATE
+          path: |
+            125A_Depthorator_v1.2.0_Windows_x64_Gumroad.zip
+            gumroad-candidate-sha256.txt
+          if-no-files-found: error
       - name: Upload development VST3 (not a release)
         uses: actions/upload-artifact@v4
         with:

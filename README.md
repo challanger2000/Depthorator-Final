@@ -1,4 +1,4 @@
-# Depthorator 1.1.0
+# 125A Depthorator 1.2.0
 
 **Each repeat goes deeper.**
 
@@ -30,6 +30,9 @@ SYNC divisions:
 - **DUCK** - reduces the processed signal around incoming transients so the direct sound stays clear and the delay/reverb can bloom behind it.
 - **MONO / STEREO / PING-PONG** - delay routing mode.
 
+### AUTO CLEAR
+- **AUTO CLEAR ON/OFF** — when a clearly separated new input note arrives, the preceding delay/reverb tail fades out, is cleared, and the new note builds its own repeats. The first note is unchanged; there are no extra controls. Detection uses audio transients and a brief input gap, not MIDI note events.
+
 ### OUTPUT
 - **MIX** - equal-power dry/wet balance.
 
@@ -49,34 +52,27 @@ The editor offers **100%** and **150%** zoom. The selected zoom level is stored 
 - Smooth, peak-safe delay-time transitions
 - Parameter/state persistence
 
-## Version 1.1.0
+## Version 1.2.0
 
-Depthorator 1.1.0 is a conservative quality update. The proven V1 sound and all musical DSP mappings are intentionally preserved.
+New optional **AUTO CLEAR OFF/ON**, implemented for incoming audio.
+The first sound and its original delay/reverb tail are left unchanged.
+On a clearly detected later input note, the old tail is smoothly
+suppressed and removed while the new note is retained and generates
+its own delay repeats. This is a full tail clear, not an ordinary
+temporary sidechain duck.
 
-Changes:
-- sample-accurate parameter automation handling;
-- additional NaN/Inf and denormal protection in feedback/reverb state;
-- realtime-safe processing fallback without callback allocation;
-- corrected 125A master logo;
-- missing percentage readouts added;
-- version label updated to V1.1.0;
-- V1-compatible processor/controller IDs and state format retained.
+All previous delay, depth, space, routing and mix controls remain
+available with their existing defaults. Previously saved V1.1 projects
+load with AUTO CLEAR OFF. The component/controller VST3 IDs are preserved.
 
-## Validation
+### Development QA evidence
 
-Final Windows V1.1.0 release validation completed on 6 October 2026:
-
-
-- 125A Plugin Tester: **46 PASS / 0 WARNING / 0 FAIL**
-- Steinberg VST3 Validator: **47 tests passed / 0 failed**
-- Isolated I/O + Event Probe: **PASS**
-- Processing setup matrix: **50/50** tested sample-rate/block-size combinations accepted
-- 32-bit and 64-bit sustained processing passed
-- Repeated activation/deactivation, state-transfer and reload stress tests passed
-- Sample-accurate automation stress passed
-- Offline processing passed
-- I/O/Event isolation passed
-- V1 character regression gate passed
+- Windows x64 VST3 build and Steinberg validator 47/47 completed.
+- Deterministic audio tests cover first-note OFF/ON parity, second-note
+  old-tail removal and audible new-note repeats.
+- The complete independent 125A Plugin Tester and physical DAW/practical
+  listening gates must be recorded separately before any FINAL release.
+- This documentation does not claim unexecuted Studio Pro tests.
 
 ## Notes
 
@@ -86,7 +82,7 @@ Factory presets are not included. The plug-in is intended to be quick to dial in
 
 ## Installation
 
-Copy `Depthorator.vst3` to a VST3 plug-in location used by your host, typically:
+Copy `125A Depthorator.vst3` to a VST3 plug-in location used by your host, typically:
 
 `C:\Program Files\Common Files\VST3\`
 
@@ -94,7 +90,7 @@ Then rescan VST3 plug-ins in your DAW if necessary.
 
 ## Documentation
 
-The release package includes German and English PDF manuals.
+The Windows package provides installation instructions in German and English. The V1.2 Auto Clear behavior is documented above.
 
 ## License
 

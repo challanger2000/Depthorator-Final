@@ -108,6 +108,7 @@ static bool run(int rate) {
     long firstDeltas = 0, duckDeltas = 0, lateDeltas = 0;
     double preDuckPeak = 0.0, duckRmsDelta = 0.0;
     double newEchoEnergy = 0.0, referenceEchoEnergy = 0.0;
+    double unclearedOldTailEnergy = 0.0, clearedOldTailEnergy = 0.0;
     for (int start=0;start<frames;start+=blockSize) {
         const int n = std::min(blockSize,frames-start);
         for (int j=0;j<n;++j) {
@@ -137,6 +138,18 @@ static bool run(int rate) {
             } else if (i > note2 + static_cast<int>(rate * 0.450)) {
                 if (offL[j] != onL[j] || offR[j] != onR[j]) ++lateDeltas;
             }
+            // Compare with a processor that saw only the second note. AFTER the
+            // 12ms fade+40ms return, ON must not retain most of the old
+            // note's echo energy, whereas OFF must still contain it.
+            // This independent oracle fails if Auto Clear only ducks wet
+            // briefly and never invalidates the old delay/reverb state.
+            if (i > note2 + static_cast<int>(rate*0.185) &&
+                i < note2 + static_cast<int>(rate*0.405)) {
+                const double ref = static_cast<double>(soloL[j]);
+                const double oldTail = a - ref, newTail = b - ref;
+                unclearedOldTailEnergy += oldTail*oldTail;
+                clearedOldTailEnergy += newTail*newTail;
+            }
             // After 0.77s delay, the NEW note must still have audible echoes.
             // Compare against a processor which played only that second note.
             if(i>note2+static_cast<int>(rate*0.775) &&
@@ -152,6 +165,8 @@ static bool run(int rate) {
     REQUIRE_TRUE(duckDeltas > 50);
     REQUIRE_TRUE(duckRmsDelta > 1.0e-8);
     REQUIRE_TRUE(lateDeltas > 50);
+    REQUIRE_TRUE(unclearedOldTailEnergy > 1.0e-7);
+    REQUIRE_TRUE(clearedOldTailEnergy < unclearedOldTailEnergy * 0.60);
     REQUIRE_TRUE(referenceEchoEnergy > 1.0e-6);
     REQUIRE_TRUE(newEchoEnergy > referenceEchoEnergy * 0.20);
     std::printf("VST3_NATIVE_FULL_CLEAR_PASS rate=%d bits=%d first_sample_deltas=%ld clear_delta_samples=%ld new_echo_survives=%s\\n",
@@ -171,5 +186,6 @@ static bool run(int rate) {
 int main() {
     if (!run<float>(44100)) return EXIT_FAILURE;
     if (!run<double>(48000)) return EXIT_FAILURE;
+    if (!run<float>(96000)) return EXIT_FAILURE;
     return EXIT_SUCCESS;
 }
