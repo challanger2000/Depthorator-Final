@@ -44,10 +44,11 @@ static bool run(int rate) {
     const int note1 = static_cast<int>(rate * 0.100);
     const int note2 = static_cast<int>(rate * 1.500);
     const int frames = static_cast<int>(rate * 2.700);
-    Depthorator::Processor off, on;
+    Depthorator::Processor off, on, solo;
 
     REQUIRE_TRUE(off.initialize(nullptr) == kResultOk);
     REQUIRE_TRUE(on.initialize(nullptr) == kResultOk);
+    REQUIRE_TRUE(solo.initialize(nullptr) == kResultOk);
     ProcessSetup setup{};
     setup.processMode = kOffline;
     setup.symbolicSampleSize = std::is_same<Sample, float>::value ? kSample32 : kSample64;
@@ -55,35 +56,45 @@ static bool run(int rate) {
     setup.sampleRate = rate;
     REQUIRE_TRUE(off.setupProcessing(setup) == kResultOk);
     REQUIRE_TRUE(on.setupProcessing(setup) == kResultOk);
+    REQUIRE_TRUE(solo.setupProcessing(setup) == kResultOk);
     REQUIRE_TRUE(off.setActive(true) == kResultOk);
     REQUIRE_TRUE(on.setActive(true) == kResultOk);
+    REQUIRE_TRUE(solo.setActive(true) == kResultOk);
     REQUIRE_TRUE(applyState(off,false));
     REQUIRE_TRUE(applyState(on,true));
+    REQUIRE_TRUE(applyState(solo,false));
     REQUIRE_TRUE(off.setProcessing(true) == kResultOk);
     REQUIRE_TRUE(on.setProcessing(true) == kResultOk);
+    REQUIRE_TRUE(solo.setProcessing(true) == kResultOk);
 
-    std::array<Sample, blockSize> dryL{}, dryR{};
-    std::array<Sample, blockSize> offL{}, offR{}, onL{}, onR{};
+    std::array<Sample, blockSize> dryL{}, dryR{}, soloDryL{}, soloDryR{};
+    std::array<Sample, blockSize> offL{}, offR{}, onL{}, onR{}, soloL{}, soloR{};
     Sample* inputs[2] {dryL.data(),dryR.data()};
+    Sample* soloInputs[2] {soloDryL.data(),soloDryR.data()};
     Sample* offOutputs[2] {offL.data(),offR.data()};
     Sample* onOutputs[2] {onL.data(),onR.data()};
+    Sample* soloOutputs[2] {soloL.data(),soloR.data()};
 
-    AudioBusBuffers inputBus{};
-    inputBus.numChannels = 2;
-    AudioBusBuffers offBus{},onBus{};
-    offBus.numChannels = onBus.numChannels = 2;
+    AudioBusBuffers inputBus{}, soloInputBus{};
+    inputBus.numChannels = soloInputBus.numChannels = 2;
+    AudioBusBuffers offBus{},onBus{},soloBus{};
+    offBus.numChannels = onBus.numChannels = soloBus.numChannels = 2;
     if constexpr (std::is_same<Sample,float>::value) {
         inputBus.channelBuffers32 = inputs;
+        soloInputBus.channelBuffers32 = soloInputs;
         offBus.channelBuffers32 = offOutputs;
         onBus.channelBuffers32 = onOutputs;
+        soloBus.channelBuffers32 = soloOutputs;
     } else {
         inputBus.channelBuffers64 = inputs;
+        soloInputBus.channelBuffers64 = soloInputs;
         offBus.channelBuffers64 = offOutputs;
         onBus.channelBuffers64 = onOutputs;
+        soloBus.channelBuffers64 = soloOutputs;
     }
 
-    ProcessData offData{},onData{};
-    for (auto* d : {&offData,&onData}) {
+    ProcessData offData{},onData{},soloData{};
+    for (auto* d : {&offData,&onData,&soloData}) {
         d->processMode = kOffline;
         d->symbolicSampleSize = setup.symbolicSampleSize;
         d->numInputs = d->numOutputs = 1;
@@ -91,9 +102,12 @@ static bool run(int rate) {
     }
     offData.outputs = &offBus;
     onData.outputs = &onBus;
+    soloData.inputs = &soloInputBus;
+    soloData.outputs = &soloBus;
 
     long firstDeltas = 0, duckDeltas = 0, lateDeltas = 0;
     double preDuckPeak = 0.0, duckRmsDelta = 0.0;
+    double newEchoEnergy = 0.0, referenceEchoEnergy = 0.0;
     for (int start=0;start<frames;start+=blockSize) {
         const int n = std::min(blockSize,frames-start);
         for (int j=0;j<n;++j) {
@@ -101,10 +115,13 @@ static bool run(int rate) {
                              + dryNote(start+j,note2,rate);
             dryL[j] = static_cast<Sample>(dry);
             dryR[j] = static_cast<Sample>(dry);
+            soloDryL[j] = static_cast<Sample>(dryNote(start+j,note2,rate));
+            soloDryR[j] = soloDryL[j];
         }
-        offData.numSamples = onData.numSamples = n;
+        offData.numSamples = onData.numSamples = soloData.numSamples = n;
         REQUIRE_TRUE(off.process(offData) == kResultOk);
         REQUIRE_TRUE(on.process(onData) == kResultOk);
+        REQUIRE_TRUE(solo.process(soloData) == kResultOk);
         for (int j=0;j<n;++j) {
             const int i = start+j;
             const auto a = static_cast<double>(offL[j]);
@@ -120,21 +137,34 @@ static bool run(int rate) {
             } else if (i > note2 + static_cast<int>(rate * 0.450)) {
                 if (offL[j] != onL[j] || offR[j] != onR[j]) ++lateDeltas;
             }
+            // After 0.77s delay, the NEW note must still have audible echoes.
+            // Compare against a processor which played only that second note.
+            if(i>note2+static_cast<int>(rate*0.775) &&
+               i<note2+static_cast<int>(rate*0.865)) {
+                const double ref=static_cast<double>(soloL[j]);
+                newEchoEnergy+=b*b;
+                referenceEchoEnergy+=ref*ref;
+            }
         }
     }
     REQUIRE_TRUE(firstDeltas == 0);
     REQUIRE_TRUE(preDuckPeak == 0.0);
     REQUIRE_TRUE(duckDeltas > 50);
     REQUIRE_TRUE(duckRmsDelta > 1.0e-8);
-    REQUIRE_TRUE(lateDeltas == 0);
-    std::printf("VST3_NATIVE_DRY_WET_PARITY_PASS rate=%d bits=%d first_sample_deltas=%ld duck_deltas=%ld recovered=%s\\n",
-        rate,static_cast<int>(sizeof(Sample)*8),firstDeltas,duckDeltas,lateDeltas==0?"true":"false");
+    REQUIRE_TRUE(lateDeltas > 50);
+    REQUIRE_TRUE(referenceEchoEnergy > 1.0e-6);
+    REQUIRE_TRUE(newEchoEnergy > referenceEchoEnergy * 0.20);
+    std::printf("VST3_NATIVE_FULL_CLEAR_PASS rate=%d bits=%d first_sample_deltas=%ld clear_delta_samples=%ld new_echo_survives=%s\\n",
+        rate,static_cast<int>(sizeof(Sample)*8),firstDeltas,duckDeltas,newEchoEnergy > referenceEchoEnergy*0.2?"true":"false");
     REQUIRE_TRUE(off.setProcessing(false) == kResultOk);
     REQUIRE_TRUE(on.setProcessing(false) == kResultOk);
+    REQUIRE_TRUE(solo.setProcessing(false) == kResultOk);
     REQUIRE_TRUE(off.setActive(false) == kResultOk);
     REQUIRE_TRUE(on.setActive(false) == kResultOk);
+    REQUIRE_TRUE(solo.setActive(false) == kResultOk);
     REQUIRE_TRUE(off.terminate() == kResultOk);
     REQUIRE_TRUE(on.terminate() == kResultOk);
+    REQUIRE_TRUE(solo.terminate() == kResultOk);
     return true;
 }
 

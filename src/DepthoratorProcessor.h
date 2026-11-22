@@ -6,6 +6,7 @@
 #include <array>
 #include <vector>
 #include <cstddef>
+#include <cstdint>
 
 namespace Depthorator {
 
@@ -41,6 +42,10 @@ private:
     double sampleRate_ {44100.0};
     std::vector<double> delayL_;
     std::vector<double> delayR_;
+    std::vector<std::uint64_t> delayFrame_;
+    std::uint64_t frameSerial_ {0};
+    std::uint64_t liveAfterFrame_ {0};
+    std::uint64_t clearStartFrame_ {0};
     std::size_t writePos_ {0};
     double feedbackLP_L_ {0.0};
     double feedbackLP_R_ {0.0};

@@ -17,20 +17,31 @@ void ReverbEngine::prepare(double sampleRate) {
     sampleRate_ = sampleRate > 1000.0 ? sampleRate : 44100.0;
     for (std::size_t i=0;i<kLines;++i) {
         const auto n=static_cast<std::size_t>(std::ceil(kBaseTimes[i]*2.25*sampleRate_))+32u;
-        buffers_[i].assign(n,0.0); writePos_[i]=0; dampState_[i]=0.0;
+        buffers_[i].assign(n,0.0); stamps_[i].assign(n,0); writePos_[i]=0; dampState_[i]=0.0;
         modPhase_[i]=static_cast<double>(i)/static_cast<double>(kLines);
     }
     for (std::size_t i=0;i<4;++i) {
         const auto n=static_cast<std::size_t>(std::ceil(kDiffTimes[i]*2.0*sampleRate_))+8u;
-        diffBuffers_[i].assign(n,0.0); diffPos_[i]=0;
+        diffBuffers_[i].assign(n,0.0); diffStamps_[i].assign(n,0); diffPos_[i]=0;
     }
 }
 
 void ReverbEngine::reset() {
     for(auto& b:buffers_) std::fill(b.begin(),b.end(),0.0);
-    for(auto& b:diffBuffers_) std::fill(b.begin(),b.end(),0.0);
+    for(auto& b:stamps_) std::fill(b.begin(),b.end(),0);
+    for(auto& b:diffBuffers_) std::fill(b.begin(),b.end(),0);
+    for(auto& b:diffStamps_) std::fill(b.begin(),b.end(),0);
+    generation_=0;
     writePos_.fill(0); diffPos_.fill(0); dampState_.fill(0.0);
     for(std::size_t i=0;i<kLines;++i) modPhase_[i]=static_cast<double>(i)/static_cast<double>(kLines);
+}
+
+// Clear without walking the FDN/diffusion buffers in the audio callback.
+// Earlier generations become logically silent; the next write belongs to
+// the new note and remains readable. Eight damped taps are constant work.
+void ReverbEngine::clearRealtime() noexcept {
+    ++generation_;
+    dampState_.fill(0.0);
 }
 
 void ReverbEngine::setParameters(double size,double decay,double damping) {
@@ -42,8 +53,9 @@ double ReverbEngine::diffuse(double input,std::size_t stage,double coefficient) 
     const double shapedSize=std::pow(size_,0.82);
     const double scale=0.78+shapedSize*1.02;
     const auto d=std::clamp<std::size_t>(static_cast<std::size_t>(std::round(kDiffTimes[stage]*scale*sampleRate_)),1u,b.size()-1u);
-    const auto rp=(pos+b.size()-d)%b.size(); const double delayed=b[rp];
-    const double output=delayed-coefficient*input; b[pos]=input+coefficient*output; pos=(pos+1u)%b.size(); return output;
+    const auto rp=(pos+b.size()-d)%b.size(); const double delayed=(generation_==0 || diffStamps_[stage][rp]==generation_)?b[rp]:0.0;
+    const double output=delayed-coefficient*input; b[pos]=input+coefficient*output;
+    if(generation_) diffStamps_[stage][pos]=generation_; pos=(pos+1u)%b.size(); return output;
 }
 
 void ReverbEngine::process(double inL,double inR,double& outL,double& outR) {
@@ -71,7 +83,9 @@ void ReverbEngine::process(double inL,double inR,double& outL,double& outR) {
         const double ds=std::clamp(kBaseTimes[i]*sizeScale*sampleRate_+modulation,2.0,static_cast<double>(b.size()-3u));
         const auto di=static_cast<std::size_t>(ds); const double frac=ds-static_cast<double>(di);
         const auto p0=(writePos_[i]+b.size()-di)%b.size(), p1=(p0+b.size()-1u)%b.size();
-        const double raw=b[p0]*(1.0-frac)+b[p1]*frac;
+        const double a=(generation_==0 || stamps_[i][p0]==generation_)?b[p0]:0.0;
+        const double b1=(generation_==0 || stamps_[i][p1]==generation_)?b[p1]:0.0;
+        const double raw=a*(1.0-frac)+b1*frac;
         dampState_[i]=zapTiny((1.0-dampA)*raw+dampA*dampState_[i]); taps[i]=dampState_[i];
         gains[i]=std::pow(10.0,(-3.0*(ds/sampleRate_))/decaySeconds);
     }
@@ -90,6 +104,7 @@ void ReverbEngine::process(double inL,double inR,double& outL,double& outR) {
     for(std::size_t i=0;i<kLines;++i) {
         auto& b=buffers_[i];
         b[writePos_[i]]=zapTiny(d*signs[i]*0.200+matrix[i]*norm*gains[i]*0.986);
+        if(generation_) stamps_[i][writePos_[i]]=generation_;
         writePos_[i]=(writePos_[i]+1u)%b.size();
     }
 

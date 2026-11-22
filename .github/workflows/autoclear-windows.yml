@@ -67,6 +67,19 @@ jobs:
           $metadata = Join-Path $stagedBundle 'Contents/Resources/moduleinfo.json'
           $gui = Join-Path $stagedBundle 'Contents/Resources/Depthorator.uidesc'
           if (-not (Test-Path $metadata) -or -not (Test-Path $gui)) { throw 'VST3 metadata or editor resources missing' }
+          # The pinned Steinberg moduleinfotool may emit trailing commas,
+          # which generic JSON parsers reject. Normalize ONLY the final staged
+          # copy; validate its real JSON structure before both validator runs.
+          $rawInfo = Get-Content -LiteralPath $metadata -Raw
+          $normalizedInfo = [regex]::Replace($rawInfo, ',(?=\\s*[}\\]])', '')
+          $parsedInfo = $normalizedInfo | ConvertFrom-Json -ErrorAction Stop
+          if (-not $parsedInfo.Classes -or $parsedInfo.Classes.Count -ne 2) {
+            throw 'Metadata does not contain exactly two factory classes'
+          }
+          $normalizedInfo = $parsedInfo | ConvertTo-Json -Depth 30
+          [System.IO.File]::WriteAllText($metadata, $normalizedInfo, (New-Object System.Text.UTF8Encoding($false)))
+          $checkInfo = Get-Content -LiteralPath $metadata -Raw | ConvertFrom-Json -ErrorAction Stop
+          if ($checkInfo.Name -cne '125A Depthorator') { throw 'Parsed canonical metadata name mismatch' }
           $info = Get-Content -LiteralPath $metadata -Raw
           if ($info -notmatch '"URL"\s*:\s*""') {
             throw 'Public plugin metadata must not expose a personal repository URL'
@@ -96,6 +109,9 @@ jobs:
           $zipBundle = Join-Path (Resolve-Path unpacked).Path $expected
           $zipBinary = Join-Path $zipBundle $binaryRelative
           if (-not (Test-Path -LiteralPath $zipBinary)) { throw 'Artifact ZIP lost the installable VST3 folder/inner binary' }
+          $zipMetadata = Join-Path $zipBundle 'Contents/Resources/moduleinfo.json'
+          $zipInfo = Get-Content -LiteralPath $zipMetadata -Raw | ConvertFrom-Json -ErrorAction Stop
+          if ($zipInfo.Name -cne '125A Depthorator') { throw 'Unzipped JSON metadata name mismatch' }
           if ((Get-FileHash $zipBinary).Hash -cne (Get-FileHash $stagedBinary).Hash) {
             throw 'ZIP changed the VST3 binary'
           }
