@@ -1,73 +1,65 @@
-"""Geometry regression for the Auto Clear panel; no third-party dependencies."""
+"""Auto Clear UI contract: one ON/OFF switch, zero additional knobs."""
 from pathlib import Path
-import re
 import sys
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 UI = ROOT / "resource" / "Depthorator.uidesc"
-CPP = ROOT / "src" / "DepthoratorController.cpp"
+CONTROLLER = ROOT / "src" / "DepthoratorController.cpp"
+PROCESSOR = ROOT / "src" / "DepthoratorProcessor.cpp"
+IDS = ROOT / "src" / "DepthoratorIDs.h"
 
-def vector(value):
-    return tuple(int(v) for v in value.split(","))
-
-def rectangle(element):
-    x, y = vector(element.attrib["origin"])
-    w, h = vector(element.attrib["size"])
+def rect(element):
+    x, y = (int(i) for i in element.attrib["origin"].split(","))
+    w, h = (int(i) for i in element.attrib["size"].split(","))
     assert w > 0 and h > 0
-    return x, y, x + w, y + h
+    return (x, y, x + w, y + h)
 
-def collides(a, b):
-    return min(a[2], b[2]) > max(a[0], b[0]) and min(a[3], b[3]) > max(a[1], b[1])
+def overlaps(a, b):
+    return (min(a[2], b[2]) > max(a[0], b[0]) and
+            min(a[3], b[3]) > max(a[1], b[1]))
 
 def main():
-    tree = ET.parse(UI)
-    template = tree.getroot().find("./template")
-    assert template is not None and vector(template.attrib["size"]) == (1000, 660)
-    views = list(template.findall("./view"))
-    new = [e for e in views if int(e.attrib["origin"].split(",")[1]) >= 479
-           and e.attrib["class"] not in ("CViewContainer",)]
-    old = [e for e in views if int(e.attrib["origin"].split(",")[1]) < 479
-           and e.attrib["class"] not in ("CViewContainer",)]
-    assert len(new) == 12, f"Expected 12 dedicated-panel views, found {len(new)}"
+    root = ET.parse(UI).getroot()
+    template = root.find("./template")
+    assert template is not None and template.get("size") == "1000,500"
+    views = template.findall("./view")
 
-    # Four evenly spaced columns and three full-parameter rotary controls.
-    button = [e for e in new if e.get("control-tag") == "AutoClearEnable"]
-    assert len(button) == 1 and button[0].get("segment-names") == "OFF,ON"
-    knobs = {}
-    for field in ("Amount", "Threshold", "Fade"):
-        matching = [e for e in new if e.get("custom-view-name") == "DepthKnobAutoClear" + field]
-        assert len(matching) == 1 and vector(matching[0].attrib["size"]) == (84, 84)
-        assert len([e for e in new if e.get("control-tag") == "AutoClear" + field]) == 1
-        knobs[field] = matching[0]
-    centers = [sum(rectangle(button[0])[::2]) / 2]
-    centers += [sum(rectangle(knobs[name])[::2]) / 2 for name in ("Amount", "Threshold", "Fade")]
-    assert all(205 <= centers[i + 1] - centers[i] <= 225 for i in range(3)), centers
-    assert 660 * 1.5 <= 990, "150% zoom must fit within 990 px height"
+    # Owner-approved UI contract: there is exactly one Auto Clear control.
+    new = [e for e in views if e.get("control-tag") == "AutoClearEnable"]
+    labels = [e for e in views if e.get("title") == "AUTO CLEAR"]
+    assert len(new) == 1 and len(labels) == 1
+    button = new[0]
+    label = labels[0]
+    assert button.get("class") == "CSegmentButton"
+    assert button.get("segment-names") == "OFF,ON"
+    assert rect(button) == (76,449,208,476)
+    assert rect(label) == (75,430,210,447)
+    assert not overlaps(rect(button), rect(label))
 
-    # All content stays within the new panel, with breathing room at edges.
-    for element in new:
-        x1, y1, x2, y2 = rectangle(element)
-        assert 55 <= x1 and x2 <= 945 and 482 <= y1 and y2 <= 647, element.attrib
-    # No label, knob, switch or editable value may collide with another one.
-    for i, left in enumerate(new):
-        for right in new[i + 1:]:
-            assert not collides(rectangle(left), rectangle(right)), (
-                f"Auto Clear overlap: {left.attrib} vs {right.attrib}")
-        for right in old:
-            assert not collides(rectangle(left), rectangle(right)), (
-                f"Original control obscured by Auto Clear: {left.attrib} vs {right.attrib}")
+    assert len(root.findall("./control-tags/control-tag[@name='AutoClearEnable']")) == 1
+    assert not any(e.get("control-tag","").startswith("AutoClear") and e is not button for e in views)
+    assert not any(e.get("custom-view-name","").startswith("DepthKnobAutoClear") for e in views)
+    for element in views:
+        if element is button or element is label or element.get("class") == "CViewContainer":
+            continue
+        assert not overlaps(rect(button),rect(element)), ("Switch overlap",element.attrib)
+        assert not overlaps(rect(label),rect(element)), ("Label overlap",element.attrib)
 
-    source = CPP.read_text(encoding="utf-8")
-    assert "CPoint(1000.,660.),VSTGUI::CPoint(1000.,660.)" in source
-    for field in ("Amount", "Threshold", "Fade"):
-        assert 'DepthKnobAutoClear' + field in source
-    assert 'DepthKnobAutoClear' not in source[:source.index('createCustomView')]
-    print("AUTO_CLEAR_GUI_GEOMETRY_PASS: four aligned columns, 12 views, no collisions")
+    controller = CONTROLLER.read_text(encoding="utf-8")
+    processor = PROCESSOR.read_text(encoding="utf-8")
+    ids = IDS.read_text(encoding="utf-8")
+    assert "CPoint(1000.,500.),VSTGUI::CPoint(1000.,500.)" in controller
+    for name in ("kClearAmount","kClearThreshold","kClearFade","DepthKnobAutoClear"):
+        assert name not in controller and name not in processor and name not in ids, name
+    assert 'parameters.addParameter(STR16("Auto Clear")' in controller
+    assert 'autoClear_.configure(values_[12]>=0.5,1.0,-30.0,40.0)' in processor
+    assert "std::array<double, 13> values_" in (ROOT/"src"/"DepthoratorProcessor.h").read_text()
+    print("AUTO_CLEAR_GUI_PASS: exactly 1 switch, 0 added knobs, no overlaps, original 1000x500 size")
 
 if __name__ == "__main__":
     try:
         main()
-    except (AssertionError, ET.ParseError, ValueError) as error:
-        print("AUTO_CLEAR_GUI_GEOMETRY_FAIL:", error, file=sys.stderr)
+    except (AssertionError, ET.ParseError) as exc:
+        print("AUTO_CLEAR_GUI_FAIL:",exc,file=sys.stderr)
         raise

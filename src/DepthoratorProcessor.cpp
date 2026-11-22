@@ -28,7 +28,7 @@ double Processor::currentDelaySeconds(const ProcessData& d)const{double t=values
 
 template<typename Sample>void Processor::processBlock(Sample**in,Sample**out,int32 start,int32 n,int32 ch,const ProcessData& data){
  if(delayL_.empty()||delayR_.empty()){for(int32 j=0;j<n;++j){const int32 i=start+j;const double l=in[0]?static_cast<double>(in[0][i]):0.0;const double r=(ch>1&&in[1])?static_cast<double>(in[1][i]):l;out[0][i]=static_cast<Sample>(std::isfinite(l)?l:0.0);if(ch>1&&out[1])out[1][i]=static_cast<Sample>(std::isfinite(r)?r:0.0);}return;}const auto bs=delayL_.size();const double requestedDelay=std::clamp(currentDelaySeconds(data)*sampleRate_,1.0,static_cast<double>(bs-3));if(!delayTimeInitialized_){activeDelaySamples_=oldDelaySamples_=targetDelaySamples_=requestedDelay;timeCrossfade_=1.0;delayTimeInitialized_=true;}if(std::abs(requestedDelay-targetDelaySamples_)>0.5){activeDelaySamples_=(timeCrossfade_<0.5)?oldDelaySamples_:targetDelaySamples_;oldDelaySamples_=activeDelaySamples_;targetDelaySamples_=requestedDelay;timeCrossfade_=0.0;}const double feedback=std::min(0.94,values_[1]*0.94),depth=values_[2],curve=values_[3],width=values_[7],duck=values_[8],mix=values_[9];
- autoClear_.configure(values_[12]>=0.5,values_[13],-60.0+60.0*values_[14],2.0+498.0*values_[15]);int mode=std::clamp(static_cast<int>(std::round(values_[11]*2.0)),0,2);const double shape=std::pow(depth,2.35-curve*1.8),cutoff=18000.0*std::pow(0.18,shape)+900.0*shape,lpA=std::exp(-2.0*3.14159265358979323846*cutoff/sampleRate_);reverb_.setParameters(values_[4],values_[5],values_[6]);const double dryGain=std::cos(mix*1.5707963267948966),wetGain=std::sin(mix*1.5707963267948966);const double repeatToRoom=0.12+shape*0.88,roomOutput=0.28+shape*0.72,directEcho=1.0-shape*0.42,roomIntoFeedback=shape*0.16;const double duckAttack=std::exp(-1.0/(0.006*sampleRate_));const double duckRelease=std::exp(-1.0/(0.240*sampleRate_));const double crossfadeStep=1.0/std::max(1.0,0.025*sampleRate_);auto readTap=[&](const std::vector<double>& b,double delaySamples){const double ds=std::clamp(delaySamples,1.0,static_cast<double>(bs-3));const auto di=static_cast<std::size_t>(ds);const double frac=ds-static_cast<double>(di);const auto p0=(writePos_+bs-di)%bs,p1=(p0+bs-1u)%bs;const double a=(liveAfterFrame_ && delayFrame_[p0]<liveAfterFrame_) ? 0.0 : b[p0];
+ autoClear_.configure(values_[12]>=0.5,1.0,-30.0,40.0);int mode=std::clamp(static_cast<int>(std::round(values_[11]*2.0)),0,2);const double shape=std::pow(depth,2.35-curve*1.8),cutoff=18000.0*std::pow(0.18,shape)+900.0*shape,lpA=std::exp(-2.0*3.14159265358979323846*cutoff/sampleRate_);reverb_.setParameters(values_[4],values_[5],values_[6]);const double dryGain=std::cos(mix*1.5707963267948966),wetGain=std::sin(mix*1.5707963267948966);const double repeatToRoom=0.12+shape*0.88,roomOutput=0.28+shape*0.72,directEcho=1.0-shape*0.42,roomIntoFeedback=shape*0.16;const double duckAttack=std::exp(-1.0/(0.006*sampleRate_));const double duckRelease=std::exp(-1.0/(0.240*sampleRate_));const double crossfadeStep=1.0/std::max(1.0,0.025*sampleRate_);auto readTap=[&](const std::vector<double>& b,double delaySamples){const double ds=std::clamp(delaySamples,1.0,static_cast<double>(bs-3));const auto di=static_cast<std::size_t>(ds);const double frac=ds-static_cast<double>(di);const auto p0=(writePos_+bs-di)%bs,p1=(p0+bs-1u)%bs;const double a=(liveAfterFrame_ && delayFrame_[p0]<liveAfterFrame_) ? 0.0 : b[p0];
  const double c=(liveAfterFrame_ && delayFrame_[p1]<liveAfterFrame_) ? 0.0 : b[p1];
  return a*(1.0-frac)+c*frac;};for(int32 j=0;j<n;++j){const int32 i=start+j;double inL=in[0]?static_cast<double>(in[0][i]):0.0,inR=ch>1&&in[1]?static_cast<double>(in[1][i]):inL;if(!std::isfinite(inL))inL=0.0;if(!std::isfinite(inR))inR=0.0;const auto clearFrame=autoClear_.process(inL,inR);
  if(clearFrame.startedFullClear)clearStartFrame_=frameSerial_+1u;
@@ -47,12 +47,12 @@ tresult PLUGIN_API Processor::process(ProcessData& d){
  if(d.numInputs==0||d.numOutputs==0||d.numSamples<=0)return kResultOk;
  auto ch=std::min<int32>(2,std::min(d.inputs[0].numChannels,d.outputs[0].numChannels));if(ch<=0)return kResultOk;
 
- std::array<ParamCursor,16> cursors{};
+ std::array<ParamCursor,13> cursors{};
  if(d.inputParameterChanges){
   const auto count=d.inputParameterChanges->getParameterCount();
   for(int32 qi=0;qi<count;++qi){
    auto*q=d.inputParameterChanges->getParameterData(qi);if(!q)continue;
-   const auto id=q->getParameterId();if(id<kTime||id>kClearFade)continue;
+   const auto id=q->getParameterId();if(id<kTime||id>kAutoClear)continue;
    auto& cur=cursors[static_cast<std::size_t>(id-kTime)];
    cur.q=q;cur.count=q->getPointCount();nextPoint(cur);
   }
@@ -100,16 +100,13 @@ tresult PLUGIN_API Processor::setState(IBStream*s){
  if(!s)return kInvalidArgument;
  IBStreamer st(s,kLittleEndian);
  auto next=values_;
- next[12]=0.0;next[13]=1.0;next[14]=0.5;next[15]=38.0/498.0;
+ next[12]=0.0;
  for(std::size_t i=0;i<12;++i){double x=0.0;if(!st.readDouble(x)||!std::isfinite(x))return kResultFalse;next[i]=std::clamp(x,0.0,1.0);}
- for(std::size_t i=12;i<next.size();++i){
-    double x=0.0;
-    if(!st.readDouble(x)){
-        if(i!=12)return kResultFalse;
-        values_=next;autoClear_.reset();delayTimeInitialized_=false;return kResultOk;
-    }
-    if(!std::isfinite(x))return kResultFalse;
-    next[i]=std::clamp(x,0.0,1.0);
+ // A V1.1 stream ends after twelve doubles; Auto Clear defaults to OFF.
+ double enabled=0.0;
+ if(st.readDouble(enabled)){
+    if(!std::isfinite(enabled))return kResultFalse;
+    next[12]=enabled>=0.5?1.0:0.0;
  }
  values_=next;autoClear_.reset();delayTimeInitialized_=false;return kResultOk;
 }

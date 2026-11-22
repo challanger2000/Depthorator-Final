@@ -21,10 +21,7 @@ enum ParamID : Steinberg::Vst::ParamID {
     kMix,
     kSync,
     kMode,
-    kAutoClear,
-    kClearAmount,
-    kClearThreshold,
-    kClearFade
+    kAutoClear
 };
 
 } // namespace Depthorator
