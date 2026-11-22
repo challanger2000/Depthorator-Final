@@ -53,7 +53,7 @@ def main():
     for name in ("kClearAmount","kClearThreshold","kClearFade","DepthKnobAutoClear"):
         assert name not in controller and name not in processor and name not in ids, name
     assert 'parameters.addParameter(STR16("Auto Clear")' in controller
-    assert 'autoClear_.configure(values_[12]>=0.5,1.0,-30.0,40.0)' in processor
+    assert 'autoClear_.configure(values_[12]>=0.5)' in processor
     assert "std::array<double, 13> values_" in (ROOT/"src"/"DepthoratorProcessor.h").read_text()
     print("AUTO_CLEAR_GUI_PASS: exactly 1 switch, 0 added knobs, no overlaps, original 1000x500 size")
 
