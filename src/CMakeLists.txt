@@ -13,7 +13,10 @@ set(DEPTHORATOR_SOURCES
     entry.cpp
 )
 
-smtg_add_vst3plugin(Depthorator ${DEPTHORATOR_SOURCES})
+smtg_add_vst3plugin(Depthorator
+    PACKAGE_NAME "125A Depthorator"
+    SOURCES_LIST ${DEPTHORATOR_SOURCES}
+)
 
 target_link_libraries(Depthorator
     PRIVATE

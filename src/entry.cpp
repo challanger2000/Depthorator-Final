@@ -3,7 +3,7 @@
 #include "DepthoratorIDs.h"
 #include "DepthoratorProcessor.h"
 
-#define stringPluginName "Depthorator"
+#define stringPluginName "125A Depthorator"
 #define stringPluginVersion "1.2.0"
 
 BEGIN_FACTORY_DEF("125A", "https://github.com/challanger2000/Depthorator-Final", "")
@@ -23,7 +23,7 @@ DEF_CLASS2(
     INLINE_UID_FROM_FUID(Depthorator::kControllerUID),
     Steinberg::PClassInfo::kManyInstances,
     kVstComponentControllerClass,
-    "Depthorator Controller",
+    "125A Depthorator Controller",
     0,
     "",
     stringPluginVersion,

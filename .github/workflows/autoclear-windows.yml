@@ -31,38 +31,75 @@ jobs:
       - name: Build official Steinberg validator
         run: cmake --build build --config Release --target validator --parallel
 
-      - name: Validate packaged VST3 and stage exact bundle
+      - name: Validate final 125A-named VST3 and verify ZIP roundtrip
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $bundle = Get-ChildItem build -Directory -Recurse -Filter Depthorator.vst3 |
-            Where-Object { Test-Path (Join-Path $_.FullName 'Contents/x86_64-win/Depthorator.vst3') } |
-            Select-Object -First 1
-          if (-not $bundle) { throw 'Windows VST3 bundle/inner binary not found' }
+          $expected = '125A Depthorator.vst3'
+          $binaryRelative = Join-Path 'Contents/x86_64-win' $expected
+          $bundles = @(Get-ChildItem build -Directory -Recurse -Filter $expected |
+            Where-Object { Test-Path (Join-Path $_.FullName $binaryRelative) })
+          if ($bundles.Count -ne 1) { throw "Expected exactly one canonical build bundle, got $($bundles.Count)" }
+          $bundle = $bundles[0]
+          if ($bundle.Name -cne $expected) { throw 'Bundle name does not match 125A standard' }
           $validator = Get-ChildItem build -File -Recurse -Filter validator.exe | Select-Object -First 1
-          if (-not $validator) { throw 'Steinberg validator.exe was not built' }
-          & $validator.FullName $bundle.FullName 2>&1 | Tee-Object -FilePath validator-result.txt
-          if ($LASTEXITCODE -ne 0) { throw 'Steinberg validator failed' }
-          New-Item -ItemType Directory -Force -Path 'artifact' | Out-Null
+          if (-not $validator) { throw 'Official Steinberg validator not built' }
+
+          # Stage exactly what is going into the artifact, without renaming
+          # any compiled binary or bundle directory in a CI script.
+          New-Item -ItemType Directory -Force -Path artifact | Out-Null
           Copy-Item -LiteralPath $bundle.FullName -Destination 'artifact' -Recurse -Force
-          $binary = 'artifact/Depthorator.vst3/Contents/x86_64-win/Depthorator.vst3'
-          if (-not (Test-Path $binary)) { throw 'Staged VST3 binary missing' }
-          $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $binary).Path)
+          $stagedBundle = Join-Path (Resolve-Path 'artifact').Path $expected
+          $stagedBinary = Join-Path $stagedBundle $binaryRelative
+          if (-not (Test-Path -LiteralPath $stagedBinary)) { throw 'Expected standard-named inner VST3 binary missing' }
+          if ((Split-Path $stagedBinary -Leaf) -cne (Split-Path $stagedBundle -Leaf)) {
+            throw 'Outer and inner VST3 filenames must be identical'
+          }
+          $oldName = Join-Path $stagedBundle 'Contents/x86_64-win/Depthorator.vst3'
+          if (Test-Path -LiteralPath $oldName) { throw 'Unprefixed inner binary still present' }
+          $bytes = [System.IO.File]::ReadAllBytes($stagedBinary)
           if ($bytes.Length -lt 65536 -or $bytes[0] -ne 77 -or $bytes[1] -ne 90) {
-            throw 'Staged VST3 is not a plausible PE-x64 binary'
+            throw 'Staged VST3 is not a plausible PE binary'
           }
           $machineOffset = [BitConverter]::ToInt32($bytes, 0x3C)
           $machine = [BitConverter]::ToUInt16($bytes, $machineOffset + 4)
-          if ($machine -ne 0x8664) { throw 'Shipping VST3 is not PE x64' }
-          $meta = Get-Content 'artifact/Depthorator.vst3/Contents/Resources/moduleinfo.json' -Raw
-          $versionFields = [regex]::Matches($meta, '"Version"\s*:\s*"([^"]+)"')
-          if ($versionFields.Count -ne 3 -or @($versionFields | Where-Object { $_.Groups[1].Value -ne '1.2.0' }).Count -ne 0) {
-            throw 'VST3 package and factory class version mismatch'
+          if ($machine -ne 0x8664) { throw 'Staged binary must be PE x64' }
+          $metadata = Join-Path $stagedBundle 'Contents/Resources/moduleinfo.json'
+          $gui = Join-Path $stagedBundle 'Contents/Resources/Depthorator.uidesc'
+          if (-not (Test-Path $metadata) -or -not (Test-Path $gui)) { throw 'VST3 metadata or editor resources missing' }
+          $info = Get-Content -LiteralPath $metadata -Raw
+          if ($info -notmatch '"Name"\s*:\s*"125A Depthorator"') {
+            throw 'Factory component name does not use 125A branding'
           }
-          $ui = Get-Content 'artifact/Depthorator.vst3/Contents/Resources/Depthorator.uidesc' -Raw
-          if ($ui -notmatch 'AutoClearEnable') { throw 'Auto Clear GUI bindings missing in staged package' }
-          Get-FileHash $binary -Algorithm SHA256 | Format-List
+          if ($info -notmatch '"Name"\s*:\s*"125A Depthorator Controller"') {
+            throw 'Controller class name does not use 125A branding'
+          }
+          foreach ($cid in @('7C4A2C1151E34CB19F72A2F43A7E1C10','8A6C914E48F147F7A3D2B9D0E5B61A22')) {
+            if ($info -notmatch $cid) { throw "Missing historical VST3 class ID: $cid" }
+          }
+          $versions = [regex]::Matches($info, '"Version"\s*:\s*"([^"]+)"')
+          if ($versions.Count -ne 3 -or @($versions | Where-Object { $_.Groups[1].Value -ne '1.2.0' }).Count) {
+            throw 'Plugin factory/controller version mismatch'
+          }
+          if ((Get-Content -LiteralPath $gui -Raw) -notmatch 'AutoClearEnable') {
+            throw 'Auto Clear ON/OFF GUI control is not bundled'
+          }
+          & $validator.FullName $stagedBundle 2>&1 | Tee-Object -FilePath validator-result.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Official Steinberg validator failed on the final staged bundle' }
 
+          # Make a roundtrip ZIP and validate the unpacked, actual shipping tree.
+          Compress-Archive -LiteralPath $stagedBundle -DestinationPath package-roundtrip.zip -CompressionLevel Optimal
+          Expand-Archive -LiteralPath package-roundtrip.zip -DestinationPath unpacked -Force
+          $zipBundle = Join-Path (Resolve-Path unpacked).Path $expected
+          $zipBinary = Join-Path $zipBundle $binaryRelative
+          if (-not (Test-Path -LiteralPath $zipBinary)) { throw 'Artifact ZIP lost the installable VST3 folder/inner binary' }
+          if ((Get-FileHash $zipBinary).Hash -cne (Get-FileHash $stagedBinary).Hash) {
+            throw 'ZIP changed the VST3 binary'
+          }
+          & $validator.FullName $zipBundle 2>&1 | Tee-Object -FilePath validator-zip-result.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Official validator failed on unzipped shipping bundle' }
+          Get-FileHash $zipBinary -Algorithm SHA256 | Format-List
+          Write-Host "125A_NAMING_PASS: outer and inner $expected, factory and class IDs verified"
       - name: Upload development VST3 (not a release)
         uses: actions/upload-artifact@v4
         with:
@@ -70,4 +107,5 @@ jobs:
           path: |
             artifact/
             validator-result.txt
+            validator-zip-result.txt
           if-no-files-found: error
