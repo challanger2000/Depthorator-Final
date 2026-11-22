@@ -28,4 +28,15 @@ if(BUILD_TESTING)
     target_include_directories(DepthoratorAutoClearTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     target_compile_features(DepthoratorAutoClearTests PRIVATE cxx_std_17)
     add_test(NAME depthorator_autoclear_core COMMAND DepthoratorAutoClearTests)
+    # Full native audio path: compile the identical processor + reverb source
+    # used by the shipped VST3 and compare sample-by-sample OFF vs ON.
+    add_executable(DepthoratorNativeAudioTests
+        tests/DepthoratorNativeAudioTests.cpp
+        src/DepthoratorProcessor.cpp
+        src/DepthoratorReverb.cpp
+    )
+    target_include_directories(DepthoratorNativeAudioTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_compile_features(DepthoratorNativeAudioTests PRIVATE cxx_std_17)
+    target_link_libraries(DepthoratorNativeAudioTests PRIVATE sdk vstgui_support)
+    add_test(NAME depthorator_native_audio COMMAND DepthoratorNativeAudioTests)
 endif()
