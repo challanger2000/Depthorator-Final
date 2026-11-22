@@ -16,6 +16,9 @@ jobs:
       - name: Checkout candidate
         uses: actions/checkout@v4
 
+      - name: Validate GUI layout geometry
+        run: python tests/verify_autoclear_layout.py
+
       - name: Configure Windows x64
         run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DBUILD_TESTING=ON
 
