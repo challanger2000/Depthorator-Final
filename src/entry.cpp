@@ -4,7 +4,7 @@
 #include "DepthoratorProcessor.h"
 
 #define stringPluginName "Depthorator"
-#define stringPluginVersion "1.1.0"
+#define stringPluginVersion "1.2.0"
 
 BEGIN_FACTORY_DEF("125A", "https://github.com/challanger2000/Depthorator-Final", "")
 

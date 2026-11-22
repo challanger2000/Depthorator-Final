@@ -48,6 +48,16 @@ jobs:
           if ($bytes.Length -lt 65536 -or $bytes[0] -ne 77 -or $bytes[1] -ne 90) {
             throw 'Staged VST3 is not a plausible PE-x64 binary'
           }
+          $machineOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+          $machine = [BitConverter]::ToUInt16($bytes, $machineOffset + 4)
+          if ($machine -ne 0x8664) { throw 'Shipping VST3 is not PE x64' }
+          $meta = Get-Content 'artifact/Depthorator.vst3/Contents/Resources/moduleinfo.json' -Raw
+          $versionFields = [regex]::Matches($meta, '"Version"\s*:\s*"([^"]+)"')
+          if ($versionFields.Count -ne 3 -or @($versionFields | Where-Object { $_.Groups[1].Value -ne '1.2.0' }).Count -ne 0) {
+            throw 'VST3 package and factory class version mismatch'
+          }
+          $ui = Get-Content 'artifact/Depthorator.vst3/Contents/Resources/Depthorator.uidesc' -Raw
+          if ($ui -notmatch 'AutoClearEnable') { throw 'Auto Clear GUI bindings missing in staged package' }
           Get-FileHash $binary -Algorithm SHA256 | Format-List
 
       - name: Upload development VST3 (not a release)
