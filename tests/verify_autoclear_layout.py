@@ -23,11 +23,11 @@ def collides(a, b):
 def main():
     tree = ET.parse(UI)
     template = tree.getroot().find("./template")
-    assert template is not None and vector(template.attrib["size"]) == (1000, 690)
+    assert template is not None and vector(template.attrib["size"]) == (1000, 660)
     views = list(template.findall("./view"))
-    new = [e for e in views if int(e.attrib["origin"].split(",")[1]) >= 491
+    new = [e for e in views if int(e.attrib["origin"].split(",")[1]) >= 479
            and e.attrib["class"] not in ("CViewContainer",)]
-    old = [e for e in views if int(e.attrib["origin"].split(",")[1]) < 491
+    old = [e for e in views if int(e.attrib["origin"].split(",")[1]) < 479
            and e.attrib["class"] not in ("CViewContainer",)]
     assert len(new) == 12, f"Expected 12 dedicated-panel views, found {len(new)}"
 
@@ -43,11 +43,12 @@ def main():
     centers = [sum(rectangle(button[0])[::2]) / 2]
     centers += [sum(rectangle(knobs[name])[::2]) / 2 for name in ("Amount", "Threshold", "Fade")]
     assert all(205 <= centers[i + 1] - centers[i] <= 225 for i in range(3)), centers
+    assert 660 * 1.5 <= 990, "150% zoom must fit within 990 px height"
 
     # All content stays within the new panel, with breathing room at edges.
     for element in new:
         x1, y1, x2, y2 = rectangle(element)
-        assert 55 <= x1 and x2 <= 945 and 492 <= y1 and y2 <= 667, element.attrib
+        assert 55 <= x1 and x2 <= 945 and 482 <= y1 and y2 <= 647, element.attrib
     # No label, knob, switch or editable value may collide with another one.
     for i, left in enumerate(new):
         for right in new[i + 1:]:
@@ -58,7 +59,7 @@ def main():
                 f"Original control obscured by Auto Clear: {left.attrib} vs {right.attrib}")
 
     source = CPP.read_text(encoding="utf-8")
-    assert "CPoint(1000.,690.),VSTGUI::CPoint(1000.,690.)" in source
+    assert "CPoint(1000.,660.),VSTGUI::CPoint(1000.,660.)" in source
     for field in ("Amount", "Threshold", "Fade"):
         assert 'DepthKnobAutoClear' + field in source
     assert 'DepthKnobAutoClear' not in source[:source.index('createCustomView')]
