@@ -71,13 +71,13 @@ jobs:
           # which generic JSON parsers reject. Normalize ONLY the final staged
           # copy; validate its real JSON structure before both validator runs.
           $rawInfo = Get-Content -LiteralPath $metadata -Raw
-          $normalizedInfo = [regex]::Replace($rawInfo, ',(?=\\s*[}\\]])', '')
+          $normalizedInfo = [regex]::Replace($rawInfo, ',(?=\s*})|,(?=\s*\])', '')
           $parsedInfo = $normalizedInfo | ConvertFrom-Json -ErrorAction Stop
           if (-not $parsedInfo.Classes -or $parsedInfo.Classes.Count -ne 2) {
             throw 'Metadata does not contain exactly two factory classes'
           }
           $normalizedInfo = $parsedInfo | ConvertTo-Json -Depth 30
-          [System.IO.File]::WriteAllText($metadata, $normalizedInfo, (New-Object System.Text.UTF8Encoding($false)))
+          [System.IO.File]::WriteAllText($metadata, $normalizedInfo, [System.Text.UTF8Encoding]::new($false))
           $checkInfo = Get-Content -LiteralPath $metadata -Raw | ConvertFrom-Json -ErrorAction Stop
           if ($checkInfo.Name -cne '125A Depthorator') { throw 'Parsed canonical metadata name mismatch' }
           $info = Get-Content -LiteralPath $metadata -Raw
