@@ -149,15 +149,7 @@ jobs:
           Write-Host "125A Plugin Tester v0.3.3 exit code: $exit"
           $files = @(Get-ChildItem $env:125A_PLUGIN_TESTER_REPORT_DIR -File -ErrorAction SilentlyContinue)
           if ($files.Count -lt 4) { throw "Insufficient Plugin Tester reports: $($files.Count)" }
-          $report = $files | Where-Object { $_.Name -match '_125A_QA_Report[.]json        uses: actions/upload-artifact@v4
-        with:
-          name: Depthorator-AutoClear-1.2-dev-Win64-VST3
-          path: |
-            artifact/
-            validator-result.txt
-            validator-zip-result.txt
-          if-no-files-found: error
- } | Select-Object -First 1
+          $report = $files | Where-Object { $_.Name.EndsWith('_125A_QA_Report.json') } | Select-Object -First 1
           if (-not $report) { throw 'Structured 125A QA JSON is missing' }
           $parsed = Get-Content $report.FullName -Raw | ConvertFrom-Json -ErrorAction Stop
           if ($parsed.status -ne 'PASS' -or $exit -ne 0) {
