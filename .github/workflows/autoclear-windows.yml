@@ -68,6 +68,9 @@ jobs:
           $gui = Join-Path $stagedBundle 'Contents/Resources/Depthorator.uidesc'
           if (-not (Test-Path $metadata) -or -not (Test-Path $gui)) { throw 'VST3 metadata or editor resources missing' }
           $info = Get-Content -LiteralPath $metadata -Raw
+          if ($info -notmatch '"URL"\s*:\s*""') {
+            throw 'Public plugin metadata must not expose a personal repository URL'
+          }
           if ($info -notmatch '"Name"\s*:\s*"125A Depthorator"') {
             throw 'Factory component name does not use 125A branding'
           }

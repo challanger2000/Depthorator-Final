@@ -6,7 +6,7 @@
 #define stringPluginName "125A Depthorator"
 #define stringPluginVersion "1.2.0"
 
-BEGIN_FACTORY_DEF("125A", "https://github.com/challanger2000/Depthorator-Final", "")
+BEGIN_FACTORY_DEF("125A", "", "")
 
 DEF_CLASS2(
     INLINE_UID_FROM_FUID(Depthorator::kProcessorUID),
