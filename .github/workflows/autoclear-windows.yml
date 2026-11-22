@@ -120,6 +120,7 @@ jobs:
           Get-FileHash $zipBinary -Algorithm SHA256 | Format-List
           Write-Host "125A_NAMING_PASS: outer and inner $expected, factory and class IDs verified"
       - name: Run independently built 125A Plugin Tester v0.3.3 on exact staged VST3
+        timeout-minutes: 25
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -144,9 +145,14 @@ jobs:
           $env:125A_PLUGIN_TESTER_REPORT_DIR = Join-Path (Get-Location).Path 'qa-reports'
           New-Item -ItemType Directory -Force -Path $env:125A_PLUGIN_TESTER_REPORT_DIR | Out-Null
           # --portable-test is the portable build's documented headless path.
-          & $tester.FullName '--portable-test' $plugin
-          $exit = $LASTEXITCODE
-          Write-Host "125A Plugin Tester v0.3.3 exit code: $exit"
+          # The portable tester is a Windows GUI-subsystem executable.
+          # PowerShell's call operator does not wait for it and the prior
+          # $LASTEXITCODE may still be zero from gh run download. The
+          # portable test's own Windows CI uses Start-Process -Wait.
+          $quotedPlugin = '"' + $plugin + '"'
+          $tested = Start-Process -FilePath $tester.FullName -ArgumentList @('--portable-test', $quotedPlugin) -Wait -PassThru
+          $exit = $tested.ExitCode
+          Write-Host "125A Plugin Tester v0.3.3 completed exit code: $exit"
           $files = @(Get-ChildItem $env:125A_PLUGIN_TESTER_REPORT_DIR -File -ErrorAction SilentlyContinue)
           if ($files.Count -lt 4) { throw "Insufficient Plugin Tester reports: $($files.Count)" }
           $report = $files | Where-Object { $_.Name.EndsWith('_125A_QA_Report.json') } | Select-Object -First 1
